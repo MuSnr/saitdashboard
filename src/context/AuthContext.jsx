@@ -1,44 +1,71 @@
-import { createContext, useContext, useState, useCallback } from 'react'
-import { loginUser } from '@/services/api'
+import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { loginUser, getMe } from '@/services/api'
 
 const AuthContext = createContext(undefined)
 
 export function AuthProvider({ children }) {
-  // TODO: remove dummy user once real auth is in place
-  const DUMMY_USER = { id: 'dev', name: 'Dev User', email: 'dev@sait.co.za', role: 'Admin' }
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true) // true while we verify token on mount
 
-  const [user, setUser] = useState(() => {
-    try {
-      const stored = localStorage.getItem('sait-user')
-      return stored ? JSON.parse(stored) : DUMMY_USER
-    } catch {
-      return DUMMY_USER
-    }
-  })
-  const [loading, setLoading] = useState(false)
-
-  const login = useCallback(async (email, password) => {
-    setLoading(true)
-    try {
-      const { data } = await loginUser({ email, password })
-      const userData = data.user || data
-      setUser(userData)
-      if (data.token) localStorage.setItem('sait-token', data.token)
-      localStorage.setItem('sait-user', JSON.stringify(userData))
-      return userData
-    } finally {
+  // ── On mount: verify stored token ──────────────────────────────────────────
+  useEffect(() => {
+    const token = localStorage.getItem('sait-token')
+    if (!token) {
       setLoading(false)
+      return
     }
+    // Verify token is still valid by fetching the current user
+    getMe()
+      .then(({ data }) => {
+        setUser(data.user)
+        localStorage.setItem('sait-user', JSON.stringify(data.user))
+      })
+      .catch(() => {
+        localStorage.removeItem('sait-token')
+        localStorage.removeItem('sait-user')
+        setUser(null)
+      })
+      .finally(() => setLoading(false))
   }, [])
 
+  // ── Login ──────────────────────────────────────────────────────────────────
+  const login = useCallback(async (email, password) => {
+    const { data } = await loginUser({ email, password })
+    if (!data.success) throw new Error(data.message)
+    const userData = data.user
+    setUser(userData)
+    localStorage.setItem('sait-token', data.token)
+    localStorage.setItem('sait-user', JSON.stringify(userData))
+    return userData
+  }, [])
+
+  // ── Logout ─────────────────────────────────────────────────────────────────
   const logout = useCallback(() => {
     setUser(null)
     localStorage.removeItem('sait-token')
     localStorage.removeItem('sait-user')
   }, [])
 
+  // ── Role helpers ───────────────────────────────────────────────────────────
+  const isAdmin = user?.role === 'admin'
+  const isCampusManager = user?.role === 'campus_manager'
+  const isViewer = user?.role === 'viewer'
+  const hasRole = (...roles) => roles.includes(user?.role)
+
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isAuthenticated: !!user,
+        loading,
+        login,
+        logout,
+        isAdmin,
+        isCampusManager,
+        isViewer,
+        hasRole,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

@@ -1,50 +1,68 @@
 import axios from 'axios'
+import { toast } from 'sonner'
 
-// Axios instance — swap baseURL when backend is ready
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: { 'Content-Type': 'application/json' },
-  timeout: 15000,
+  timeout: 20000,
 })
 
-// Attach token on every request
+// ── Request interceptor — attach token ────────────────────────────────────────
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('sait-token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
 })
 
-// Handle 401 globally
+// ── Response interceptor — handle 401 globally ───────────────────────────────
 api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
       localStorage.removeItem('sait-token')
-      window.location.href = '/login'
+      localStorage.removeItem('sait-user')
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
     }
     return Promise.reject(err)
   }
 )
 
+// ── Helper to extract error message ──────────────────────────────────────────
+export const getApiError = (err) =>
+  err?.response?.data?.message || err?.message || 'An unexpected error occurred.'
+
 // ── Auth ──────────────────────────────────────────────────────────────────────
 export const loginUser = (credentials) => api.post('/users/login', credentials)
+export const registerUser = (data) => api.post('/users/register', data)
+export const forgotPassword = (email) => api.post('/users/forgot-password', { email })
+export const resetPassword = (token, password) => api.post(`/users/reset-password/${token}`, { password })
+export const changePassword = (data) => api.put('/users/change-password', data)
+export const getMe = () => api.get('/users/me')
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
 export const fetchDashboardAnalytics = () =>
   api.get('/dashboard/analytics').then((r) => r.data).catch(() => null)
 
 // ── Assets ────────────────────────────────────────────────────────────────────
-export const fetchAssets = () => api.get('/assets').then((r) => r.data).catch(() => [])
+export const fetchAssets = (params) =>
+  api.get('/assets', { params }).then((r) => r.data?.assets || []).catch(() => [])
 export const createAsset = (data) => api.post('/assets', data).then((r) => r.data)
+export const updateAsset = (id, data) => api.put(`/assets/${id}`, data).then((r) => r.data)
 export const deleteAsset = (id) => api.delete(`/assets/${id}`).then((r) => r.data)
+export const bulkImportAssets = (data) => api.post('/assets/bulk', data).then((r) => r.data)
 
 // ── Insurance Register ────────────────────────────────────────────────────────
-export const fetchInsuranceRecords = () => api.get('/insurance-register').then((r) => r.data).catch(() => [])
+export const fetchInsuranceRecords = () =>
+  api.get('/insurance-register').then((r) => r.data?.records || []).catch(() => [])
 export const createInsuranceRecord = (data) => api.post('/insurance-register', data).then((r) => r.data)
+export const updateInsuranceRecord = (id, data) => api.put(`/insurance-register/${id}`, data).then((r) => r.data)
 export const deleteInsuranceRecord = (id) => api.delete(`/insurance-register/${id}`).then((r) => r.data)
 
 // ── Claims ────────────────────────────────────────────────────────────────────
-export const fetchClaims = () => api.get('/claims').then((r) => r.data).catch(() => [])
+export const fetchClaims = () =>
+  api.get('/claims').then((r) => r.data?.claims || []).catch(() => [])
 export const createClaim = (data) => api.post('/claims', data).then((r) => r.data)
 export const updateClaim = (id, data) => api.put(`/claims/${id}`, data).then((r) => r.data)
 export const deleteClaim = (id) => api.delete(`/claims/${id}`).then((r) => r.data)
@@ -54,12 +72,30 @@ export const fetchReportData = (type, filters) =>
   api.get('/reports', { params: { type, ...filters } }).then((r) => r.data).catch(() => [])
 
 // ── Policies ──────────────────────────────────────────────────────────────────
-export const fetchPolicies = () => api.get('/policies').then((r) => r.data).catch(() => [])
+export const fetchPolicies = () =>
+  api.get('/policies').then((r) => r.data?.policies || []).catch(() => [])
 export const createPolicy = (data) => api.post('/policies', data).then((r) => r.data)
 export const deletePolicy = (id) => api.delete(`/policies/${id}`).then((r) => r.data)
 
-// ── Users ─────────────────────────────────────────────────────────────────────
-export const fetchUsers = () => api.get('/users').then((r) => r.data).catch(() => [])
+// ── Users (admin) ─────────────────────────────────────────────────────────────
+export const fetchUsers = () =>
+  api.get('/users').then((r) => r.data?.users || []).catch(() => [])
 export const createUser = (data) => api.post('/users', data).then((r) => r.data)
 export const updateUser = (id, data) => api.put(`/users/${id}`, data).then((r) => r.data)
 export const deleteUser = (id) => api.delete(`/users/${id}`).then((r) => r.data)
+export const approveUser = (id, action) => api.put(`/users/${id}/approve`, { action }).then((r) => r.data)
+
+// ── Campuses ──────────────────────────────────────────────────────────────────
+export const fetchCampuses = () =>
+  api.get('/campuses').then((r) => r.data?.campuses || []).catch(() => [])
+export const createCampus = (data) => api.post('/campuses', data).then((r) => r.data)
+export const updateCampus = (id, data) => api.put(`/campuses/${id}`, data).then((r) => r.data)
+export const deleteCampus = (id) => api.delete(`/campuses/${id}`).then((r) => r.data)
+
+// ── Sub-Campuses ──────────────────────────────────────────────────────────────
+export const fetchSubCampuses = (campusId) =>
+  api.get('/sub-campuses', { params: campusId ? { campus: campusId } : {} })
+    .then((r) => r.data?.subCampuses || []).catch(() => [])
+export const createSubCampus = (data) => api.post('/sub-campuses', data).then((r) => r.data)
+export const updateSubCampus = (id, data) => api.put(`/sub-campuses/${id}`, data).then((r) => r.data)
+export const deleteSubCampus = (id) => api.delete(`/sub-campuses/${id}`).then((r) => r.data)

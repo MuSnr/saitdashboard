@@ -6,15 +6,18 @@ import './index.css'
 import App from './App.jsx'
 import { AuthProvider } from '@/context/AuthContext'
 import { ThemeProvider } from '@/context/ThemeContext'
+import { CampusProvider } from '@/context/CampusContext'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <ThemeProvider>
-          <App />
-          <Toaster richColors position="top-right" closeButton />
-        </ThemeProvider>
+        <CampusProvider>
+          <ThemeProvider>
+            <App />
+            <Toaster richColors position="top-right" closeButton />
+          </ThemeProvider>
+        </CampusProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>

@@ -2,6 +2,7 @@ import { Layout } from '@/components/Layout'
 import { Search, Loader2 } from 'lucide-react'
 import { useState, useMemo, useEffect } from 'react'
 import { fetchAssets } from '@/services/api'
+import { useCampuses } from '@/context/CampusContext'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -9,7 +10,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const statusVariant = { Insured: 'default', 'Request Removal': 'orange', 'Request Addition': 'info', Stolen: 'destructive' }
 
+const INSURANCE_CLASSES = [
+  'Fire', 'Buildings Combined', 'Business All Risk', 'Electronic Equipment',
+  'Theft Section', 'Business Interruption', 'Public Liability', 'Umbrella Liability',
+  'Employers Liability', 'Sasria', 'Broker Fees', 'TWK Assist / Bystand',
+]
+
 export default function Inventory() {
+  const { campuses } = useCampuses()
   const [assets, setAssets] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -23,11 +31,11 @@ export default function Inventory() {
 
   const filtered = useMemo(() => assets.filter((a) => {
     const q = search.toLowerCase()
-    const matchSearch = !q || [a.serialNumber, a.assetId, a.description, a.campus].some((f) => f?.toLowerCase().includes(q))
+    const matchSearch = !q || [a.serialNumber, a.assetId, a.description, a.subsidiary, a.gradeLocation].some((f) => f?.toLowerCase().includes(q))
     return matchSearch
-      && (campus === 'all' || a.campus === campus)
-      && (cls === 'all' || a.class === cls)
-      && (status === 'all' || a.status === status)
+      && (campus === 'all' || a.subsidiary === campus)
+      && (cls === 'all' || a.insuranceClass === cls)
+      && (status === 'all' || a.insuranceStatus === status)
   }), [assets, search, campus, cls, status])
 
   if (loading) return (
@@ -60,21 +68,21 @@ export default function Inventory() {
               <SelectTrigger className="w-full lg:w-44"><SelectValue placeholder="Campus" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Campuses</SelectItem>
-                {['Ruimsig','Paulshof','Midrand','Boksburg','North Riding'].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                {campuses.map((c) => <SelectItem key={c._id} value={c.name}>{c.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={cls} onValueChange={setCls}>
               <SelectTrigger className="w-full lg:w-52"><SelectValue placeholder="Insurance Class" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Classes</SelectItem>
-                {['Fire','Buildings Combined','Business All Risk','Electronic Equipment'].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                {INSURANCE_CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger className="w-full lg:w-44"><SelectValue placeholder="Status" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                {['Insured','Request Removal','Request Addition','Stolen'].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                {['Insured','Request Removal','Request Addition','Stolen','Not Insured'].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -96,23 +104,36 @@ export default function Inventory() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                    {['Asset ID','Serial #','Description','Campus','Class','Status','Unit Cost','Qty','Last Verified'].map((h) => (
+                    {['Asset ID','Serial / Location','Description','Campus','Sub-Location','Class','Status','Unit Price','Qty','Sum Insured','Year'].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                   {filtered.map((a) => (
-                    <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                    <tr key={a._id} className={`hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors ${a.isDuplicate ? 'opacity-50' : ''}`}>
                       <td className="px-4 py-3 font-mono text-xs text-nova-navy dark:text-white">{a.assetId}</td>
-                      <td className="px-4 py-3 text-gray-500 font-mono text-xs">{a.serialNumber}</td>
+                      <td className="px-4 py-3 text-gray-500 font-mono text-xs max-w-[140px] truncate" title={a.serialNumber || a.gradeLocation}>
+                        {a.serialNumber || a.gradeLocation || '—'}
+                        {a.isDuplicate && <span className="ml-1 text-amber-500 text-[10px]">[DUP]</span>}
+                      </td>
                       <td className="px-4 py-3 text-gray-700 dark:text-gray-300 max-w-[180px] truncate">{a.description}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{a.campus}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{a.class}</td>
-                      <td className="px-4 py-3"><Badge variant={statusVariant[a.status] || 'secondary'}>{a.status}</Badge></td>
-                      <td className="px-4 py-3 font-semibold text-nova-navy dark:text-white">R {a.unitCost?.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{a.quantity}</td>
-                      <td className="px-4 py-3 text-gray-400 text-xs">{a.lastVerified || '—'}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{a.subsidiary}</td>
+                      <td className="px-4 py-3 text-gray-500 text-xs">{a.subLocation || '—'}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{a.insuranceClass}</td>
+                      <td className="px-4 py-3">
+                        {a.insuranceStatus
+                          ? <Badge variant={statusVariant[a.insuranceStatus] || 'secondary'}>{a.insuranceStatus}</Badge>
+                          : <span className="text-gray-300 text-xs">—</span>}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-nova-navy dark:text-white tabular-nums">
+                        R {Number(a.unitPrice || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 tabular-nums">{a.quantity}</td>
+                      <td className="px-4 py-3 font-semibold text-nova-teal tabular-nums text-xs">
+                        R {Number(a.sumInsured || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="px-4 py-3 text-gray-400 text-xs">{a.year || '—'}</td>
                     </tr>
                   ))}
                 </tbody>

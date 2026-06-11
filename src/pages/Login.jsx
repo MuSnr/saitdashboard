@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { getApiError } from '@/services/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,6 +21,10 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Redirect to the page the user tried to access, or dashboard
+  const from = location.state?.from?.pathname || '/'
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -27,9 +32,9 @@ export default function Login() {
     setLoading(true)
     try {
       await login(email, password)
-      navigate('/')
+      navigate(from, { replace: true })
     } catch (err) {
-      setError(err?.response?.data?.message || err.message || 'Login failed. Please try again.')
+      setError(getApiError(err))
     } finally {
       setLoading(false)
     }
@@ -40,21 +45,16 @@ export default function Login() {
 
       {/* ── Left panel ─────────────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-1/2 bg-nova-navy flex-col justify-between p-12 relative overflow-hidden">
-        {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-32 -left-32 w-96 h-96 bg-nova-green/10 rounded-full blur-3xl" />
           <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-nova-teal/10 rounded-full blur-3xl" />
         </div>
 
-        {/* Logo */}
         <div className="relative flex items-center gap-3">
-          <div className="w-10 h-10 bg-nova-green rounded-xl flex items-center justify-center font-bold text-nova-navy text-sm shadow-lg">
-            SA
-          </div>
+          <div className="w-10 h-10 bg-nova-green rounded-xl flex items-center justify-center font-bold text-nova-navy text-sm shadow-lg">SA</div>
           <span className="text-white font-bold text-xl">SAIT</span>
         </div>
 
-        {/* Hero */}
         <div className="relative space-y-6">
           <div>
             <h2 className="text-4xl font-bold text-white leading-tight mb-3">
@@ -65,8 +65,6 @@ export default function Login() {
               across every Nova Pioneer campus — in real time.
             </p>
           </div>
-
-          {/* Feature bullets */}
           <div className="space-y-4">
             {features.map(({ icon: Icon, title, desc }) => (
               <div key={title} className="flex items-start gap-4">
@@ -82,9 +80,7 @@ export default function Login() {
           </div>
         </div>
 
-        <p className="relative text-gray-500 text-xs">
-          © 2025 Nova Pioneer · Asset Reconciliation Platform
-        </p>
+        <p className="relative text-gray-500 text-xs">© 2025 Nova Pioneer · Asset Reconciliation Platform</p>
       </div>
 
       {/* ── Right panel ────────────────────────────────────────── */}
@@ -92,20 +88,14 @@ export default function Login() {
 
         {/* Mobile logo */}
         <div className="lg:hidden flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-nova-navy rounded-xl flex items-center justify-center font-bold text-white text-sm">
-            SA
-          </div>
+          <div className="w-10 h-10 bg-nova-navy rounded-xl flex items-center justify-center font-bold text-white text-sm">SA</div>
           <span className="text-nova-navy dark:text-white font-bold text-xl">SAIT</span>
         </div>
 
         <div className="w-full max-w-md">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-nova-navy dark:text-white mb-2">
-              Welcome back
-            </h1>
-            <p className="text-gray-500 dark:text-gray-400">
-              Sign in to access the platform
-            </p>
+            <h1 className="text-3xl font-bold text-nova-navy dark:text-white mb-2">Welcome back</h1>
+            <p className="text-gray-500 dark:text-gray-400">Sign in to access the platform</p>
           </div>
 
           {/* Error */}
@@ -132,7 +122,15 @@ export default function Login() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs text-nova-teal hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
                 <Input
                   id="password"
@@ -156,14 +154,12 @@ export default function Login() {
 
             <Button type="submit" className="w-full h-11 text-base" disabled={loading}>
               {loading ? (
-                <><Loader2 size={18} className="animate-spin" /> Signing in...</>
+                <><Loader2 size={18} className="animate-spin" /> Signing in…</>
               ) : (
                 'Sign In'
               )}
             </Button>
           </form>
-
-          {/* Demo credentials removed — re-add when backend auth is ready */}
         </div>
       </div>
     </div>

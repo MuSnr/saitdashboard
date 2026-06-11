@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   BarChart3, Plus, FileText, Users, Settings, Search,
   TrendingUp, Moon, Sun, LogOut, Shield, Bell, ChevronLeft,
-  HelpCircle,
+  MapPin,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
@@ -16,7 +16,12 @@ const navItems = [
   { label: 'Claims Pipeline',    icon: TrendingUp,  href: '/claims' },
   { label: 'Reports',            icon: BarChart3,   href: '/reports' },
   { label: 'Policy Documents',   icon: FileText,    href: '/policies' },
+]
+
+// Only shown to admins
+const adminNavItems = [
   { label: 'User Management',    icon: Users,       href: '/users' },
+  { label: 'Campuses & Locations', icon: MapPin,    href: '/locations' },
 ]
 
 const bottomItems = [
@@ -104,6 +109,17 @@ export function Layout({ children }) {
             <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mb-2">Main Menu</p>
           )}
           {navItems.map((item) => <SidebarLink key={item.href} {...item} />)}
+
+          {/* Admin-only section */}
+          {user?.role === 'admin' && (
+            <>
+              {!collapsed && (
+                <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mt-4 mb-2">Admin</p>
+              )}
+              {collapsed && <div className="my-2 border-t border-gray-100 dark:border-gray-800" />}
+              {adminNavItems.map((item) => <SidebarLink key={item.href} {...item} />)}
+            </>
+          )}
         </nav>
 
         {/* Bottom section */}
