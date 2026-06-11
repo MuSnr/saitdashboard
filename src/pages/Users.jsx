@@ -5,21 +5,28 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { fetchUsers, createUser, updateUser, deleteUser, approveUser, getApiError } from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
+import { useCampuses } from '@/context/CampusContext'
 
 const roleVariant = { admin: 'default', campus_manager: 'info', viewer: 'secondary' }
 const roleLabel = { admin: 'Admin', campus_manager: 'Campus Manager', viewer: 'Viewer' }
 const statusVariant = { active: 'default', pending: 'warning', inactive: 'secondary', suspended: 'destructive' }
+const statusColour = {
+  active:    'bg-green-100 text-green-700',
+  pending:   'bg-amber-100 text-amber-700',
+  inactive:  'bg-gray-100 text-gray-500',
+  suspended: 'bg-red-100 text-red-700',
+}
 
 const emptyForm = { name: '', email: '', password: '', role: 'viewer', region: 'South Africa', campus: '', status: 'active' }
 
 export default function Users() {
   const { user: currentUser } = useAuth()
+  const { campuses } = useCampuses()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -193,16 +200,21 @@ export default function Users() {
                     </td>
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{u.email}</td>
                     <td className="px-4 py-3">
-                      <Badge variant={roleVariant[u.role] || 'secondary'}>{roleLabel[u.role] || u.role}</Badge>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                        u.role === 'admin' ? 'bg-nova-navy text-white' :
+                        u.role === 'campus_manager' ? 'bg-sky-100 text-sky-700' :
+                        'bg-gray-100 text-gray-600'
+                      }`}>
+                        {roleLabel[u.role] || u.role}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{u.region || '—'}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{u.campus || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{u.region || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{u.campus || '—'}</td>
                     <td className="px-4 py-3">
-                      <Badge variant={statusVariant[u.status] || 'secondary'}>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColour[u.status] || 'bg-gray-100 text-gray-600'}`}>
                         {u.status.charAt(0).toUpperCase() + u.status.slice(1)}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 text-gray-400 text-xs">
+                      </span>
+                    </td>                    <td className="px-4 py-3 text-gray-400 text-xs">
                       {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : 'Never'}
                     </td>
                     <td className="px-4 py-3">
@@ -257,6 +269,11 @@ export default function Users() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{editUser ? 'Edit User' : 'Add New User'}</DialogTitle>
+            <DialogDescription>
+              {editUser
+                ? 'Update user details, role and access settings.'
+                : 'Create a new user account. The user will be active immediately.'}
+            </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
             <div className="space-y-1.5">
@@ -328,12 +345,24 @@ export default function Users() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Campus</Label>
-                <Input
-                  value={form.campus}
-                  onChange={(e) => setForm((p) => ({ ...p, campus: e.target.value }))}
-                  placeholder="e.g. Midrand"
-                />
+                <Label>
+                  Campus
+                  {form.role === 'campus_manager' && (
+                    <span className="text-[10px] text-nova-teal ml-1">— required for Campus Manager</span>
+                  )}
+                </Label>
+                <Select
+                  value={form.campus || '__none__'}
+                  onValueChange={(v) => setForm((p) => ({ ...p, campus: v === '__none__' ? '' : v }))}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select campus" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— None —</SelectItem>
+                    {campuses.map((c) => (
+                      <SelectItem key={c._id} value={c.name}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>

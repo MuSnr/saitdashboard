@@ -1,197 +1,446 @@
 import { Layout } from '@/components/Layout'
-import { Download, Filter, BarChart3, TrendingDown, AlertCircle, Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { Download, Filter, BarChart3, TrendingDown, AlertCircle, Loader2, RefreshCw } from 'lucide-react'
+import { useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
+import { toast } from 'sonner'
+import { fetchVarianceReport, fetchClaimsReport, fetchAssetsReport, getApiError } from '@/services/api'
+import { useCampuses } from '@/context/CampusContext'
 
-const varianceData = [
-  { id:'1', campus:'Ruimsig',      class:'Fire',                targetValue:45230000,  insuredValue:40120000,  variance:-5110000,  variancePercent:-11.3, status:'Under-Insured' },
-  { id:'2', campus:'Ruimsig',      class:'Buildings Combined',  targetValue:125600000, insuredValue:118900000, variance:-6700000,  variancePercent:-5.3,  status:'Under-Insured' },
-  { id:'3', campus:'Paulshof',     class:'Business All Risk',   targetValue:78400000,  insuredValue:62150000,  variance:-16250000, variancePercent:-20.7, status:'Critical' },
-  { id:'4', campus:'Midrand',      class:'Electronic Equipment',targetValue:38313200,  insuredValue:42500000,  variance:4186800,   variancePercent:10.9,  status:'Over-Insured' },
-  { id:'5', campus:'Boksburg',     class:'Fire',                targetValue:28900000,  insuredValue:25340000,  variance:-3560000,  variancePercent:-12.3, status:'Under-Insured' },
-  { id:'6', campus:'North Riding', class:'Business All Risk',   targetValue:52100000,  insuredValue:48900000,  variance:-3200000,  variancePercent:-6.1,  status:'Under-Insured' },
+const fmt  = (n) => Number(n || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmtN = (n) => Number(n || 0).toLocaleString('en-ZA')
+
+const INSURANCE_CLASSES = [
+  'Fire', 'Buildings Combined', 'Business All Risk', 'Electronic Equipment',
+  'Theft Section', 'Business Interruption', 'Public Liability', 'Umbrella Liability',
+  'Employers Liability', 'Sasria', 'Broker Fees', 'TWK Assist / Bystand',
 ]
-const savingsData = [
-  { id:'1', assetId:'AST-045', description:'Dell Laptop – Damaged',          campus:'Ruimsig',      class:'Electronic Equipment', totalValue:75000,  annualPremium:3750,  status:'Damaged' },
-  { id:'2', assetId:'AST-089', description:'Office Chair – Beyond Repair',   campus:'Paulshof',     class:'Fire',                  totalValue:22400,  annualPremium:1120,  status:'Beyond Repair' },
-  { id:'3', assetId:'AST-156', description:'Projector – Stolen',             campus:'Midrand',      class:'Electronic Equipment', totalValue:36000,  annualPremium:1800,  status:'Stolen' },
-  { id:'4', assetId:'AST-234', description:'Server – Non-functional',        campus:'Boksburg',     class:'Business All Risk',     totalValue:250000, annualPremium:12500, status:'Damaged' },
-]
-const claimsData = [
-  { id:'1', claimId:'CLM-2024-001', campus:'Ruimsig',      amount:125400, date:'Dec 15, 2024', stage:'Paid Out',  daysOpen:45 },
-  { id:'2', claimId:'CLM-2024-002', campus:'Paulshof',     amount:87500,  date:'Dec 10, 2024', stage:'Paid Out',  daysOpen:50 },
-  { id:'3', claimId:'CLM-2024-003', campus:'Midrand',      amount:203200, date:'Nov 20, 2024', stage:'Rejected',  daysOpen:70 },
-  { id:'4', claimId:'CLM-2024-004', campus:'Boksburg',     amount:45600,  date:'Nov 15, 2024', stage:'Paid Out',  daysOpen:75 },
+
+const CLAIM_STATUSES = ['Pending', 'Paid Out', 'Rejected', 'Withdrawn', 'Lodged']
+
+const DATE_RANGES = [
+  { label: 'Last 30 Days', value: '30' },
+  { label: 'Last 60 Days', value: '60' },
+  { label: 'Last 90 Days', value: '90' },
+  { label: 'Year to Date', value: 'ytd' },
+  { label: 'All Time',     value: 'all' },
 ]
 
 const reportTypes = [
-  { value:'variance', label:'Variance Report',  icon:BarChart3,    desc:'Breakdown by campus and class' },
-  { value:'savings',  label:'Savings Audit',    icon:TrendingDown, desc:'Cost reduction opportunities' },
-  { value:'claims',   label:'Claims History',   icon:AlertCircle,  desc:'Historical trends analysis' },
+  { value: 'variance', label: 'Variance Report',  icon: BarChart3,    desc: 'Asset value vs sum insured, by campus & class' },
+  { value: 'claims',   label: 'Claims History',   icon: AlertCircle,  desc: 'Historical claims pipeline with settlement data' },
+  { value: 'assets',   label: 'Asset Register',   icon: TrendingDown, desc: 'Full asset register export by campus and class' },
 ]
 
+// ── Status badge helpers ──────────────────────────────────────────────────────
+const varianceBadge = (status) => {
+  if (status === 'Critical')      return 'bg-red-100 text-red-700'
+  if (status === 'Under-Insured') return 'bg-amber-100 text-amber-700'
+  if (status === 'Over-Insured')  return 'bg-sky-100 text-sky-700'
+  return 'bg-green-100 text-green-700'
+}
+
+const claimBadge = {
+  'Paid Out':  'bg-green-100 text-green-700',
+  'Pending':   'bg-yellow-100 text-yellow-700',
+  'Rejected':  'bg-red-100 text-red-700',
+  'Withdrawn': 'bg-gray-100 text-gray-600',
+  'Lodged':    'bg-blue-100 text-blue-700',
+}
+
+const insuranceBadge = {
+  'Insured':          'bg-green-100 text-green-700',
+  'Request Removal':  'bg-red-100 text-red-700',
+  'Request Addition': 'bg-blue-100 text-blue-700',
+  'Stolen':           'bg-red-200 text-red-800',
+  'Not Insured':      'bg-gray-100 text-gray-600',
+}
+
+// ── CSV export helper ─────────────────────────────────────────────────────────
+const exportCSV = (reportType, rows) => {
+  if (!rows?.length) return
+
+  let csv = ''
+  let filename = ''
+
+  if (reportType === 'variance') {
+    csv = 'Campus,Insurance Class,Asset Value (R),Insured Value (R),Variance (R),Variance %,Items,Status\n'
+    rows.forEach((r) => {
+      csv += `"${r.campus}","${r.class}",${r.targetValue},${r.insuredValue},${r.variance},${r.variancePercent}%,${r.itemCount},"${r.status}"\n`
+    })
+    filename = `variance-report-${Date.now()}.csv`
+  } else if (reportType === 'claims') {
+    csv = 'Claim ID,Campus,Amount (R),Incident Date,Submitted,Settled,Status,Days Open,Description\n'
+    rows.forEach((r) => {
+      csv += `"${r.claimId}","${r.campus}",${r.amount},"${r.date}","${r.dateSubmitted}","${r.dateSettled || ''}","${r.stage}",${r.daysOpen},"${r.description?.replace(/"/g, '""')}"\n`
+    })
+    filename = `claims-report-${Date.now()}.csv`
+  } else {
+    csv = 'Asset ID,Campus,Sub-Campus,Insurance Class,Description,Serial #,Qty,Unit Price (R),Sum Insured (R),Status,Year\n'
+    rows.forEach((r) => {
+      csv += `"${r.assetId}","${r.subsidiary}","${r.subLocation || ''}","${r.insuranceClass}","${r.description?.replace(/"/g, '""')}","${r.serialNumber || ''}",${r.quantity},${r.unitPrice},${r.sumInsured},"${r.insuranceStatus || ''}",${r.year || ''}\n`
+    })
+    filename = `asset-register-${Date.now()}.csv`
+  }
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function Reports() {
-  const [reportType, setReportType] = useState('variance')
-  const [campus, setCampus] = useState('all')
-  const [cls, setCls] = useState('all')
-  const [dateRange, setDateRange] = useState('Last 30 Days')
-  const [exportFmt, setExportFmt] = useState('csv')
-  const [result, setResult] = useState(null)
+  const { campuses } = useCampuses()
+
+  // Filters
+  const [reportType,    setReportType]    = useState('variance')
+  const [subsidiary,    setSubsidiary]    = useState('all')
+  const [insuranceClass,setInsuranceClass]= useState('all')
+  const [claimStatus,   setClaimStatus]   = useState('all')
+  const [dateRange,     setDateRange]     = useState('all')
+
+  // Results
+  const [rows,       setRows]       = useState(null)   // null = not yet run
   const [generating, setGenerating] = useState(false)
 
-  const generate = async () => {
+  const generate = useCallback(async () => {
     setGenerating(true)
-    await new Promise((r) => setTimeout(r, 1000))
-    let data = reportType === 'variance' ? varianceData : reportType === 'savings' ? savingsData : claimsData
-    if (campus !== 'all') data = data.filter((r) => r.campus === campus)
-    if (reportType === 'variance' && cls !== 'all') data = data.filter((r) => r.class === cls)
-    setResult(data)
-    setGenerating(false)
-  }
+    setRows(null)
+    try {
+      const params = { subsidiary, dateRange }
+      let data = []
 
-  const handleExport = () => {
-    if (!result?.length) return
-    if (exportFmt === 'csv') {
-      let csv = ''
       if (reportType === 'variance') {
-        csv = 'Campus,Class,Target Value,Insured Value,Variance,Variance %,Status\n'
-        result.forEach((r) => { csv += `${r.campus},${r.class},${r.targetValue},${r.insuredValue},${r.variance},${r.variancePercent}%,${r.status}\n` })
-      } else if (reportType === 'savings') {
-        csv = 'Asset ID,Description,Campus,Total Value,Annual Premium,Status\n'
-        result.forEach((r) => { csv += `${r.assetId},${r.description},${r.campus},${r.totalValue},${r.annualPremium},${r.status}\n` })
+        params.insuranceClass = insuranceClass
+        data = await fetchVarianceReport(params)
+      } else if (reportType === 'claims') {
+        params.status = claimStatus
+        data = await fetchClaimsReport(params)
       } else {
-        csv = 'Claim ID,Campus,Amount,Date,Stage,Days Open\n'
-        result.forEach((r) => { csv += `${r.claimId},${r.campus},${r.amount},${r.date},${r.stage},${r.daysOpen}\n` })
+        params.insuranceClass  = insuranceClass
+        params.insuranceStatus = claimStatus
+        data = await fetchAssetsReport(params)
       }
-      const blob = new Blob([csv], { type: 'text/csv' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url; a.download = `sait-${reportType}-${Date.now()}.csv`; a.click()
-      URL.revokeObjectURL(url)
+
+      setRows(Array.isArray(data) ? data : [])
+    } catch (err) {
+      toast.error(getApiError(err))
+      setRows([])
+    } finally {
+      setGenerating(false)
     }
+  }, [reportType, subsidiary, insuranceClass, claimStatus, dateRange])
+
+  const handleTypeChange = (t) => {
+    setReportType(t)
+    setRows(null)
+    setSubsidiary('all')
+    setInsuranceClass('all')
+    setClaimStatus('all')
+    setDateRange('all')
   }
 
-  const varianceBadge = (v) => v < -20 ? 'destructive' : v < 0 ? 'warning' : 'default'
+  // ── Summary stats for variance ────────────────────────────────────────────
+  const varianceSummary = reportType === 'variance' && rows?.length > 0 ? {
+    totalAssetValue:   rows.reduce((s, r) => s + r.targetValue, 0),
+    totalInsuredValue: rows.reduce((s, r) => s + r.insuredValue, 0),
+    criticalCount:     rows.filter((r) => r.status === 'Critical').length,
+    underCount:        rows.filter((r) => r.status === 'Under-Insured').length,
+  } : null
 
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-nova-navy dark:text-white mb-1">Reports</h1>
-          <p className="text-gray-500 dark:text-gray-400">Generate and export reconciliation reports</p>
+
+        {/* ── Header ──────────────────────────────────────────────────────── */}
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-nova-navy dark:text-white mb-1">Reports</h1>
+            <p className="text-gray-500 dark:text-gray-400">
+              Generate and export live reconciliation reports from the database
+            </p>
+          </div>
+          {rows !== null && (
+            <Button variant="outline" size="sm" onClick={generate} disabled={generating}>
+              <RefreshCw size={14} /> Refresh
+            </Button>
+          )}
         </div>
 
-        {/* Type picker */}
+        {/* ── Type picker ──────────────────────────────────────────────────── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {reportTypes.map(({ value, label, icon: Icon, desc }) => (
             <button
               key={value}
-              onClick={() => { setReportType(value); setResult(null) }}
-              className={`text-left p-5 rounded-xl border-2 transition-all ${reportType === value ? 'border-nova-green bg-nova-green/5' : 'border-gray-200 dark:border-gray-800 hover:border-nova-green/50'}`}
+              onClick={() => handleTypeChange(value)}
+              className={`text-left p-5 rounded-xl border-2 transition-all ${
+                reportType === value
+                  ? 'border-nova-green bg-nova-green/5 dark:bg-nova-green/10'
+                  : 'border-gray-200 dark:border-gray-800 hover:border-nova-green/50'
+              }`}
             >
-              <Icon size={22} className={`mb-3 ${reportType === value ? 'text-nova-green' : 'text-gray-500'}`} />
-              <p className="font-semibold text-nova-navy dark:text-white">{label}</p>
+              <Icon size={22} className={`mb-3 ${reportType === value ? 'text-nova-green' : 'text-gray-400'}`} />
+              <p className="font-semibold text-nova-navy dark:text-white text-sm">{label}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{desc}</p>
             </button>
           ))}
         </div>
 
-        {/* Filters */}
+        {/* ── Filters ──────────────────────────────────────────────────────── */}
         <Card className="p-5">
-          <div className="flex items-center gap-2 mb-3"><Filter size={16} className="text-gray-500" /><span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filters</span></div>
+          <div className="flex items-center gap-2 mb-4">
+            <Filter size={15} className="text-gray-500" />
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filters</span>
+          </div>
           <div className="flex flex-wrap gap-3 items-end">
-            <Select value={campus} onValueChange={setCampus}>
-              <SelectTrigger className="w-44"><SelectValue placeholder="Campus" /></SelectTrigger>
-              <SelectContent><SelectItem value="all">All Campuses</SelectItem>{['Ruimsig','Paulshof','Midrand','Boksburg','North Riding'].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+
+            {/* Campus */}
+            <Select value={subsidiary} onValueChange={setSubsidiary}>
+              <SelectTrigger className="w-48"><SelectValue placeholder="All Campuses" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Campuses</SelectItem>
+                {campuses.map((c) => (
+                  <SelectItem key={c._id} value={c.name}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
             </Select>
-            {reportType === 'variance' && (
-              <Select value={cls} onValueChange={setCls}>
-                <SelectTrigger className="w-52"><SelectValue placeholder="Insurance Class" /></SelectTrigger>
-                <SelectContent><SelectItem value="all">All Classes</SelectItem>{['Fire','Buildings Combined','Business All Risk','Electronic Equipment'].map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+
+            {/* Insurance Class — shown for variance and assets */}
+            {(reportType === 'variance' || reportType === 'assets') && (
+              <Select value={insuranceClass} onValueChange={setInsuranceClass}>
+                <SelectTrigger className="w-56"><SelectValue placeholder="All Classes" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Classes</SelectItem>
+                  {INSURANCE_CLASSES.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
+                </SelectContent>
               </Select>
             )}
+
+            {/* Claim status — for claims report */}
+            {reportType === 'claims' && (
+              <Select value={claimStatus} onValueChange={setClaimStatus}>
+                <SelectTrigger className="w-44"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  {CLAIM_STATUSES.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Insurance status — for assets report */}
+            {reportType === 'assets' && (
+              <Select value={claimStatus} onValueChange={setClaimStatus}>
+                <SelectTrigger className="w-48"><SelectValue placeholder="All Statuses" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  {['Insured', 'Request Removal', 'Request Addition', 'Stolen', 'Not Insured'].map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Date range */}
             <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-              <SelectContent>{['Last 30 Days','Last 60 Days','Last 90 Days','Year to Date','All Time'].map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+              <SelectTrigger className="w-44"><SelectValue placeholder="Date Range" /></SelectTrigger>
+              <SelectContent>
+                {DATE_RANGES.map((d) => (
+                  <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                ))}
+              </SelectContent>
             </Select>
-            <Button onClick={generate} disabled={generating}>
-              {generating ? <><Loader2 size={15} className="animate-spin" /> Generating…</> : 'Generate Report'}
+
+            <Button onClick={generate} disabled={generating} className="ml-auto">
+              {generating
+                ? <><Loader2 size={15} className="animate-spin" /> Generating…</>
+                : 'Generate Report'}
             </Button>
           </div>
         </Card>
 
-        {/* Export bar */}
-        {result && result.length > 0 && (
-          <div className="flex items-center justify-between gap-4 p-4 bg-nova-green/10 border border-nova-green/30 rounded-xl flex-wrap">
-            <div><p className="font-semibold text-nova-navy dark:text-white text-sm">Export Report</p><p className="text-xs text-gray-500 dark:text-gray-400">{result.length} records</p></div>
-            <div className="flex items-center gap-3">
-              <Select value={exportFmt} onValueChange={setExportFmt}>
-                <SelectTrigger className="w-28"><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="csv">CSV</SelectItem><SelectItem value="pdf">PDF</SelectItem><SelectItem value="xlsx">Excel</SelectItem></SelectContent>
-              </Select>
-              <Button onClick={handleExport} variant="default" size="sm"><Download size={15} /> Download</Button>
-            </div>
+        {/* ── Variance summary stats ────────────────────────────────────── */}
+        {varianceSummary && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'Total Asset Value',   value: `R ${fmt(varianceSummary.totalAssetValue)}`,   colour: 'text-nova-navy dark:text-white' },
+              { label: 'Total Insured Value', value: `R ${fmt(varianceSummary.totalInsuredValue)}`, colour: 'text-nova-teal' },
+              { label: 'Critical Lines',      value: varianceSummary.criticalCount,                 colour: 'text-red-600' },
+              { label: 'Under-Insured Lines', value: varianceSummary.underCount,                    colour: 'text-amber-600' },
+            ].map(({ label, value, colour }) => (
+              <Card key={label}>
+                <div className="p-4">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
+                  <p className={`text-xl font-bold ${colour}`}>{value}</p>
+                </div>
+              </Card>
+            ))}
           </div>
         )}
 
-        {/* Results */}
-        {result ? (
-          <Card className="overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-200 dark:border-gray-800">
-              <span className="font-semibold text-nova-navy dark:text-white text-sm">{reportTypes.find((t) => t.value === reportType)?.label} ({result.length} records)</span>
+        {/* ── Export bar ────────────────────────────────────────────────── */}
+        {rows?.length > 0 && (
+          <div className="flex items-center justify-between gap-4 p-4 bg-nova-green/10 border border-nova-green/30 rounded-xl flex-wrap">
+            <div>
+              <p className="font-semibold text-nova-navy dark:text-white text-sm">Export as CSV</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{rows.length} records ready</p>
             </div>
+            <Button onClick={() => exportCSV(reportType, rows)} size="sm">
+              <Download size={15} /> Download CSV
+            </Button>
+          </div>
+        )}
+
+        {/* ── Loading state ─────────────────────────────────────────────── */}
+        {generating && (
+          <div className="flex items-center justify-center py-20 gap-3 text-gray-400">
+            <Loader2 size={32} className="animate-spin text-nova-green" />
+            <p className="text-sm font-medium">Generating report…</p>
+          </div>
+        )}
+
+        {/* ── Empty state ───────────────────────────────────────────────── */}
+        {!generating && rows === null && (
+          <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-xl gap-3 text-gray-400">
+            <BarChart3 size={40} className="opacity-40" />
+            <p className="font-medium">Select filters and click "Generate Report"</p>
+          </div>
+        )}
+
+        {/* ── No results ───────────────────────────────────────────────── */}
+        {!generating && rows !== null && rows.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-xl gap-3 text-gray-400">
+            <BarChart3 size={36} className="opacity-40" />
+            <p className="font-medium">No data matches your filters</p>
+            <p className="text-xs text-gray-400">Try broadening your filters or adding data first</p>
+          </div>
+        )}
+
+        {/* ── Results table ─────────────────────────────────────────────── */}
+        {!generating && rows?.length > 0 && (
+          <Card className="overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+              <span className="font-semibold text-nova-navy dark:text-white text-sm">
+                {reportTypes.find((t) => t.value === reportType)?.label} — {rows.length} records
+              </span>
+            </div>
+
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                    {reportType === 'variance' && ['Campus','Class','Target Value','Insured Value','Variance','%','Status'].map((h) => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>)}
-                    {reportType === 'savings'  && ['Asset ID','Description','Campus','Total Value','Annual Premium','Status'].map((h) => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>)}
-                    {reportType === 'claims'   && ['Claim ID','Campus','Amount','Date','Stage','Days Open'].map((h) => <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>)}
+
+                    {/* ── Variance columns ── */}
+                    {reportType === 'variance' && [
+                      'Campus', 'Insurance Class', 'Items', 'Asset Value', 'Insured Value', 'Variance', 'Variance %', 'Status',
+                    ].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
+
+                    {/* ── Claims columns ── */}
+                    {reportType === 'claims' && [
+                      'Ref', 'Campus', 'Amount', 'Incident', 'Submitted', 'Settled', 'Status', 'Days Open', 'Description',
+                    ].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
+
+                    {/* ── Assets columns ── */}
+                    {reportType === 'assets' && [
+                      'Asset ID', 'Campus', 'Sub-Campus', 'Class', 'Description', 'Serial #', 'Qty', 'Unit Price', 'Sum Insured', 'Status', 'Year',
+                    ].map((h) => (
+                      <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                    ))}
                   </tr>
                 </thead>
+
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {result.map((r) => (
-                    <tr key={r.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                  {rows.map((r, i) => (
+                    <tr key={r.id || i} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+
+                      {/* ── Variance row ── */}
                       {reportType === 'variance' && (<>
-                        <td className="px-4 py-3 font-medium text-nova-navy dark:text-white">{r.campus}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.class}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">R {r.targetValue.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">R {r.insuredValue.toLocaleString()}</td>
-                        <td className={`px-4 py-3 font-semibold ${r.variance < 0 ? 'text-red-600' : 'text-nova-green'}`}>R {r.variance.toLocaleString()}</td>
-                        <td className={`px-4 py-3 font-semibold ${r.variancePercent < 0 ? 'text-red-600' : 'text-nova-green'}`}>{r.variancePercent.toFixed(1)}%</td>
-                        <td className="px-4 py-3"><Badge variant={r.status === 'Critical' ? 'destructive' : r.status === 'Over-Insured' ? 'info' : 'warning'}>{r.status}</Badge></td>
+                        <td className="px-4 py-3 font-medium text-nova-navy dark:text-white text-xs whitespace-nowrap">{r.campus}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs whitespace-nowrap">{r.class}</td>
+                        <td className="px-4 py-3 text-gray-500 text-xs tabular-nums">{fmtN(r.itemCount)}</td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300 text-xs tabular-nums whitespace-nowrap">R {fmt(r.targetValue)}</td>
+                        <td className="px-4 py-3 text-nova-teal font-medium text-xs tabular-nums whitespace-nowrap">R {fmt(r.insuredValue)}</td>
+                        <td className={`px-4 py-3 font-semibold text-xs tabular-nums whitespace-nowrap ${r.variance < 0 ? 'text-red-600' : 'text-nova-green'}`}>
+                          {r.variance < 0 ? '-' : '+'}R {fmt(Math.abs(r.variance))}
+                        </td>
+                        <td className={`px-4 py-3 font-semibold text-xs tabular-nums ${r.variancePercent < 0 ? 'text-red-600' : 'text-nova-green'}`}>
+                          {r.variancePercent > 0 ? '+' : ''}{r.variancePercent.toFixed(1)}%
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${varianceBadge(r.status)}`}>
+                            {r.status}
+                          </span>
+                        </td>
                       </>)}
-                      {reportType === 'savings' && (<>
-                        <td className="px-4 py-3 font-mono text-xs text-nova-navy dark:text-white">{r.assetId}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.description}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.campus}</td>
-                        <td className="px-4 py-3 font-semibold text-nova-navy dark:text-white">R {r.totalValue.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-red-600 font-semibold">R {r.annualPremium.toLocaleString()}</td>
-                        <td className="px-4 py-3"><Badge variant="destructive">{r.status}</Badge></td>
-                      </>)}
+
+                      {/* ── Claims row ── */}
                       {reportType === 'claims' && (<>
-                        <td className="px-4 py-3 font-mono text-xs text-nova-navy dark:text-white">{r.claimId}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.campus}</td>
-                        <td className="px-4 py-3 font-semibold text-nova-navy dark:text-white">R {r.amount.toLocaleString()}</td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{r.date}</td>
-                        <td className="px-4 py-3"><Badge variant={r.stage === 'Paid Out' ? 'default' : r.stage === 'Rejected' ? 'destructive' : 'warning'}>{r.stage}</Badge></td>
-                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.daysOpen}d</td>
+                        <td className="px-4 py-3 font-mono text-xs font-bold text-nova-navy dark:text-white whitespace-nowrap">{r.claimId}</td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300 text-xs whitespace-nowrap">{r.campus}</td>
+                        <td className="px-4 py-3 font-semibold text-nova-navy dark:text-white text-xs tabular-nums whitespace-nowrap">
+                          {r.amount > 0 ? `R ${fmt(r.amount)}` : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{r.date}</td>
+                        <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{r.dateSubmitted}</td>
+                        <td className="px-4 py-3 text-xs whitespace-nowrap">
+                          {r.dateSettled
+                            ? <span className="text-green-600 font-medium">{r.dateSettled}</span>
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${claimBadge[r.stage] || 'bg-gray-100 text-gray-600'}`}>
+                            {r.stage}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-500 text-xs tabular-nums">{r.daysOpen}d</td>
+                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs max-w-[200px] truncate" title={r.description}>
+                          {r.description}
+                        </td>
                       </>)}
+
+                      {/* ── Assets row ── */}
+                      {reportType === 'assets' && (<>
+                        <td className="px-4 py-3 font-mono text-[10px] text-gray-400">{r.assetId}</td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300 text-xs whitespace-nowrap">{r.subsidiary}</td>
+                        <td className="px-4 py-3 text-gray-500 text-xs">{r.subLocation || '—'}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs whitespace-nowrap">{r.insuranceClass}</td>
+                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300 text-xs max-w-[180px] truncate" title={r.description}>
+                          {r.description}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-[10px] text-gray-500 max-w-[110px] truncate">
+                          {r.serialNumber || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs tabular-nums">{r.quantity}</td>
+                        <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs tabular-nums whitespace-nowrap">R {fmt(r.unitPrice)}</td>
+                        <td className="px-4 py-3 font-semibold text-nova-teal text-xs tabular-nums whitespace-nowrap">R {fmt(r.sumInsured)}</td>
+                        <td className="px-4 py-3">
+                          {r.insuranceStatus
+                            ? <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${insuranceBadge[r.insuranceStatus] || 'bg-gray-100 text-gray-600'}`}>
+                                {r.insuranceStatus}
+                              </span>
+                            : <span className="text-gray-300 text-xs">—</span>}
+                        </td>
+                        <td className="px-4 py-3 text-gray-400 text-xs">{r.year || '—'}</td>
+                      </>)}
+
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           </Card>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-20 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-xl gap-3 text-gray-400">
-            <BarChart3 size={40} className="opacity-40" />
-            <p className="font-medium">Select filters and click "Generate Report"</p>
-          </div>
         )}
+
       </div>
     </Layout>
   )

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Layout } from '@/components/Layout'
-import { Plus, Trash2, Upload, File, X, Shield, Edit2, Loader2, RefreshCw } from 'lucide-react'
+import { Plus, Trash2, Upload, File, X, Shield, Edit2, Loader2, RefreshCw, Link2, Unlink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -8,13 +8,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import {
   fetchInsuranceRecords, createInsuranceRecord, updateInsuranceRecord,
   deleteInsuranceRecord, getApiError,
 } from '@/services/api'
 import { useCampuses } from '@/context/CampusContext'
+import { Link } from 'react-router-dom'
 
 const insuranceClasses = [
   'Fire', 'Buildings Combined', 'Business All Risk', 'Electronic Equipment',
@@ -24,10 +24,13 @@ const insuranceClasses = [
 const statuses = ['Active', 'Request Removal', 'Request Addition', 'Request Update', 'Removed', 'Insured']
 const categories = ['Asset Based', 'Risk Based', 'Fees']
 
-const statusVariant = {
-  Active: 'default', Insured: 'default',
-  'Request Removal': 'destructive', 'Request Addition': 'info',
-  'Request Update': 'warning', Removed: 'secondary',
+const statusColour = {
+  Active:             'bg-green-100 text-green-700',
+  Insured:            'bg-green-100 text-green-700',
+  'Request Removal':  'bg-red-100 text-red-700',
+  'Request Addition': 'bg-blue-100 text-blue-700',
+  'Request Update':   'bg-amber-100 text-amber-700',
+  Removed:            'bg-gray-100 text-gray-500',
 }
 
 const blank = {
@@ -157,17 +160,34 @@ export default function InsuranceRegister() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
           {[
-            { label: 'Total Records', value: records.length, color: 'text-nova-navy dark:text-white' },
-            { label: 'Total Sum Insured', value: `R ${totalSumInsured.toLocaleString()}`, color: 'text-nova-teal' },
-            { label: 'Monthly Premium', value: `R ${totalMonthly.toLocaleString('en-ZA', { maximumFractionDigits: 2 })}`, color: 'text-nova-green' },
+            { label: 'Total Records',    value: records.length,                                               color: 'text-nova-navy dark:text-white' },
+            { label: 'Linked to Assets', value: records.filter((r) => r.linkedAssetId).length,                color: 'text-green-600' },
+            { label: 'Not Linked (Ghost)', value: records.filter((r) => !r.linkedAssetId).length,             color: 'text-red-600' },
+            { label: 'Total Sum Insured', value: `R ${totalSumInsured.toLocaleString()}`,                     color: 'text-nova-teal' },
           ].map(({ label, value, color }) => (
             <Card key={label}><CardContent className="p-6">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{label}</p>
               <p className={`text-3xl font-bold ${color}`}>{value}</p>
             </CardContent></Card>
           ))}
+        </div>
+
+        {/* Reconciliation shortcut */}
+        <div className="flex items-center gap-3 p-4 bg-nova-teal/10 border border-nova-teal/30 rounded-xl">
+          <Link2 size={18} className="text-nova-teal flex-shrink-0" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-nova-navy dark:text-white">
+              {records.filter((r) => !r.linkedAssetId).length} records have no matching asset
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Go to the Reconciliation page to link them or identify ghost items you should stop paying for.
+            </p>
+          </div>
+          <Link to="/reconciliation">
+            <Button size="sm" variant="outline">View Reconciliation</Button>
+          </Link>
         </div>
 
         {/* Table */}
@@ -187,7 +207,7 @@ export default function InsuranceRegister() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                    {['Subsidiary', 'Status', 'Class', 'Description', 'Sum Insured', 'Monthly Premium', 'Dec 2025 Premium', ''].map((h) => (
+                    {['Subsidiary', 'Status', 'Class', 'Description', 'Linked Asset', 'Sum Insured', 'Monthly Premium', 'Dec 2025 Premium', ''].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -195,13 +215,35 @@ export default function InsuranceRegister() {
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                   {records.map((r) => (
                     <tr key={r._id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{r.subsidiary}</td>
-                      <td className="px-4 py-3"><Badge variant={statusVariant[r.status] || 'secondary'}>{r.status}</Badge></td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{r.classOfInsurance}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 max-w-[180px] truncate">{r.descriptionDetails || r.assetOrInsurableRisk || '—'}</td>
-                      <td className="px-4 py-3 font-semibold text-nova-teal">R {(r.sumInsured || 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">R {(r.monthlyPremium || 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400">R {(r.december2025Premium || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300 text-xs">{r.subsidiary}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusColour[r.status] || 'bg-gray-100 text-gray-600'}`}>
+                          {r.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{r.classOfInsurance}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs max-w-[160px] truncate" title={r.descriptionDetails || r.assetOrInsurableRisk}>
+                        {r.descriptionDetails || r.assetOrInsurableRisk || '—'}
+                      </td>
+                      {/* Linked Asset */}
+                      <td className="px-4 py-3">
+                        {r.linkedAssetId ? (
+                          <div className="flex items-center gap-1.5">
+                            <Link2 size={11} className="text-green-600 flex-shrink-0" />
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-mono text-green-700 font-semibold">{r.linkedAssetId.assetId}</p>
+                              <p className="text-[10px] text-gray-400 truncate max-w-[100px]">{r.linkedAssetId.description}</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="flex items-center gap-1 text-[10px] text-red-500 font-medium">
+                            <Unlink size={10} /> Not linked
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-nova-teal text-xs tabular-nums">R {(r.sumInsured || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs tabular-nums">R {(r.monthlyPremium || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs tabular-nums">R {(r.december2025Premium || 0).toLocaleString()}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-nova-teal hover:bg-nova-teal/10 transition-colors"><Edit2 size={14} /></button>

@@ -1,77 +1,39 @@
 import { Layout } from '@/components/Layout'
-import { Save, AlertCircle, Plus, Trash2, Loader2 } from 'lucide-react'
-import { useState, useEffect, useCallback } from 'react'
+import { Save, AlertCircle, ExternalLink } from 'lucide-react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
-import { fetchCampuses, createCampus, deleteCampus, getApiError } from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
+import { useCampuses } from '@/context/CampusContext'
+import { Link } from 'react-router-dom'
 
-const insuranceClasses = [
-  { name: 'Fire', desc: 'Furniture, Fixtures, and Stock' },
-  { name: 'Buildings Combined', desc: 'Main building structures and Solar Panels' },
-  { name: 'Business All Risk', desc: 'Specialized mobility equipment and Laptops' },
-  { name: 'Electronic Equipment', desc: 'Chromebooks, Laptops, and Projectors' },
+const INSURANCE_CLASSES = [
+  { name: 'Fire',                  desc: 'Furniture, Fixtures, and Stock' },
+  { name: 'Buildings Combined',    desc: 'Main building structures and Solar Panels' },
+  { name: 'Business All Risk',     desc: 'Specialized mobility equipment and Laptops' },
+  { name: 'Electronic Equipment',  desc: 'Chromebooks, Laptops, and Projectors' },
+  { name: 'Theft Section',         desc: 'Theft-related losses' },
+  { name: 'Business Interruption', desc: 'Loss of income due to insured events' },
+  { name: 'Public Liability',      desc: 'Third-party injury or property damage' },
+  { name: 'Umbrella Liability',    desc: 'Excess liability coverage' },
+  { name: 'Employers Liability',   desc: 'Employee injury at work' },
+  { name: 'Sasria',                desc: 'Special risks (riots, civil unrest)' },
+  { name: 'Broker Fees',           desc: 'Policy administration fees' },
+  { name: 'TWK Assist / Bystand',  desc: 'Assistance and bystander cover' },
 ]
 
 export default function Settings() {
   const { isAdmin } = useAuth()
+  const { campuses } = useCampuses()
   const [rate, setRate] = useState(5)
-  const [campuses, setCampuses] = useState([])
-  const [loadingCampuses, setLoadingCampuses] = useState(true)
-  const [newCampus, setNewCampus] = useState({ name: '', shortName: '', initials: '' })
-  const [addingCampus, setAddingCampus] = useState(false)
-
-  const loadCampuses = useCallback(async () => {
-    setLoadingCampuses(true)
-    try {
-      const data = await fetchCampuses()
-      setCampuses(Array.isArray(data) ? data : [])
-    } catch (err) {
-      toast.error(getApiError(err))
-    } finally {
-      setLoadingCampuses(false)
-    }
-  }, [])
-
-  useEffect(() => { loadCampuses() }, [loadCampuses])
 
   const handleSave = (e) => {
     e.preventDefault()
     toast.success('Settings saved')
-  }
-
-  const handleAddCampus = async (e) => {
-    e.preventDefault()
-    if (!newCampus.name || !newCampus.shortName || !newCampus.initials) {
-      toast.error('All campus fields are required')
-      return
-    }
-    setAddingCampus(true)
-    try {
-      const data = await createCampus(newCampus)
-      setCampuses((p) => [...p, data.campus])
-      setNewCampus({ name: '', shortName: '', initials: '' })
-      toast.success('Campus added')
-    } catch (err) {
-      toast.error(getApiError(err))
-    } finally {
-      setAddingCampus(false)
-    }
-  }
-
-  const handleDeleteCampus = async (id, name) => {
-    if (!window.confirm(`Remove campus "${name}"?`)) return
-    try {
-      await deleteCampus(id)
-      setCampuses((p) => p.filter((c) => c._id !== id))
-      toast.success('Campus removed')
-    } catch (err) {
-      toast.error(getApiError(err))
-    }
   }
 
   return (
@@ -136,71 +98,56 @@ export default function Settings() {
           </CardContent>
         </Card>
 
-        {/* Campus registry */}
+        {/* Insurance Classes reference */}
         <Card>
-          <CardHeader><CardTitle>Campus Registry</CardTitle></CardHeader>
-          <CardContent className="space-y-6">
+          <CardHeader><CardTitle>Insurance Classes Reference</CardTitle></CardHeader>
+          <CardContent>
             <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                    {['Campus Name', 'Short Code', 'Initials', ...(isAdmin ? [''] : [])].map((h) => (
+                    {['Class Name', 'Description'].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {loadingCampuses ? (
-                    <tr><td colSpan={4} className="px-4 py-8 text-center">
-                      <Loader2 size={20} className="animate-spin mx-auto text-nova-green" />
-                    </td></tr>
-                  ) : campuses.map((c) => (
-                    <tr key={c._id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                  {INSURANCE_CLASSES.map((c) => (
+                    <tr key={c.name} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                       <td className="px-4 py-3 font-medium text-nova-navy dark:text-white">{c.name}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-gray-500">{c.shortName}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-gray-500">{c.initials}</td>
-                      {isAdmin && (
-                        <td className="px-4 py-3">
-                          <button
-                            onClick={() => handleDeleteCampus(c._id, c.name)}
-                            className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
-                      )}
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">{c.desc}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-
-            {isAdmin && (
-              <div>
-                <h3 className="text-sm font-semibold text-nova-navy dark:text-white mb-3">Add New Campus</h3>
-                <form onSubmit={handleAddCampus} className="flex flex-wrap gap-3 items-end">
-                  <div className="space-y-1.5 flex-1 min-w-[160px]">
-                    <Label>Campus Name</Label>
-                    <Input value={newCampus.name} onChange={(e) => setNewCampus((p) => ({ ...p, name: e.target.value }))} placeholder="Ormonde Fonteney" />
-                  </div>
-                  <div className="space-y-1.5 w-28">
-                    <Label>Short Code</Label>
-                    <Input value={newCampus.shortName} onChange={(e) => setNewCampus((p) => ({ ...p, shortName: e.target.value }))} placeholder="NPO" />
-                  </div>
-                  <div className="space-y-1.5 w-28">
-                    <Label>Initials</Label>
-                    <Input value={newCampus.initials} onChange={(e) => setNewCampus((p) => ({ ...p, initials: e.target.value }))} placeholder="NPO" />
-                  </div>
-                  <Button type="submit" variant="secondary" disabled={addingCampus}>
-                    {addingCampus ? <Loader2 size={14} className="animate-spin" /> : <><Plus size={16} /> Add</>}
-                  </Button>
-                </form>
-              </div>
-            )}
           </CardContent>
         </Card>
 
-        
+        {/* Campus management shortcut */}
+        {isAdmin && (
+          <Card>
+            <CardHeader><CardTitle>Campus & Location Management</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Campus and sub-campus management has moved to its own dedicated page for a better experience.
+              </p>
+              <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                <div className="flex-1">
+                  <p className="font-semibold text-nova-navy dark:text-white text-sm">Campuses & Locations</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {campuses.length} campuses registered · Add, edit, and manage campuses and their sub-campuses
+                  </p>
+                </div>
+                <Link to="/locations">
+                  <Button size="sm" variant="outline">
+                    <ExternalLink size={14} /> Manage
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Warning notice */}
         <div className="flex items-start gap-4 p-5 bg-nova-orange/10 border border-nova-orange/30 rounded-xl">

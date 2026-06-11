@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   BarChart3, Plus, FileText, Users, Settings, Search,
   TrendingUp, Moon, Sun, LogOut, Shield, Bell, ChevronLeft,
-  MapPin,
+  MapPin, GitMerge,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
@@ -13,6 +13,7 @@ const navItems = [
   { label: 'Data Entry',         icon: Plus,        href: '/data-entry' },
   { label: 'Asset Inventory',    icon: Search,      href: '/inventory' },
   { label: 'Insurance Register', icon: Shield,      href: '/insurance-register' },
+  { label: 'Reconciliation',     icon: GitMerge,    href: '/reconciliation' },
   { label: 'Claims Pipeline',    icon: TrendingUp,  href: '/claims' },
   { label: 'Reports',            icon: BarChart3,   href: '/reports' },
   { label: 'Policy Documents',   icon: FileText,    href: '/policies' },
