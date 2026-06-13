@@ -2,21 +2,45 @@ import { createContext, useContext, useState, useEffect } from 'react'
 
 const ThemeContext = createContext(undefined)
 
+// Apply theme to <html> immediately — prevents flash on load
+function applyTheme(theme) {
+  const root = document.documentElement
+  if (theme === 'dark') {
+    root.classList.add('dark')
+  } else {
+    root.classList.remove('dark')
+  }
+}
+
+// Resolve initial theme synchronously from storage or system preference
+function getInitialTheme() {
+  try {
+    const stored = localStorage.getItem('sait-theme')
+    if (stored === 'dark' || stored === 'light') return stored
+  } catch {
+    // localStorage blocked (private mode edge cases)
+  }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+}
+
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
-    const stored = localStorage.getItem('sait-theme')
-    if (stored) return stored
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+    const initial = getInitialTheme()
+    // Apply immediately so there's no flash before React hydrates
+    applyTheme(initial)
+    return initial
   })
 
   useEffect(() => {
-    const root = document.documentElement
-    if (theme === 'dark') root.classList.add('dark')
-    else root.classList.remove('dark')
-    localStorage.setItem('sait-theme', theme)
+    applyTheme(theme)
+    try {
+      localStorage.setItem('sait-theme', theme)
+    } catch {
+      // ignore
+    }
   }, [theme])
 
-  const toggleTheme = () => setTheme((p) => (p === 'light' ? 'dark' : 'light'))
+  const toggleTheme = () => setTheme((prev) => (prev === 'light' ? 'dark' : 'light'))
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>

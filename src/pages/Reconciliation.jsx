@@ -3,16 +3,18 @@ import { Layout } from '@/components/Layout'
 import {
   RefreshCw, Loader2, Link2, Unlink, Zap, AlertTriangle,
   CheckCircle2, ShieldOff, Search, ChevronDown, ChevronUp,
+  Plus, X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import {
   fetchReconciliation, linkRecords, unlinkRecord,
-  runAutoLink, fetchLinkSuggestions, getApiError,
+  runAutoLink, fetchLinkSuggestions, createAsset, getApiError,
 } from '@/services/api'
 import { useCampuses } from '@/context/CampusContext'
 import { useAuth } from '@/context/AuthContext'
@@ -26,16 +28,16 @@ const INSURANCE_CLASSES = [
 ]
 
 const statusColour = {
-  'Insured':          'bg-green-100 text-green-700',
+  Insured:            'bg-green-100 text-green-700',
   'Request Removal':  'bg-red-100 text-red-700',
   'Request Addition': 'bg-blue-100 text-blue-700',
   'Not Insured':      'bg-gray-100 text-gray-500',
-  'Stolen':           'bg-red-200 text-red-800',
-  'Active':           'bg-green-100 text-green-700',
-  'Removed':          'bg-gray-100 text-gray-500',
+  Stolen:             'bg-red-200 text-red-800',
+  Active:             'bg-green-100 text-green-700',
+  Removed:            'bg-gray-100 text-gray-500',
 }
 
-// ── Section toggle card ───────────────────────────────────────────────────────
+// ── Collapsible section ───────────────────────────────────────────────────────
 function Section({ title, icon: Icon, count, accent, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
@@ -53,7 +55,9 @@ function Section({ title, icon: Icon, count, accent, children, defaultOpen = tru
             {count}
           </span>
         </div>
-        {open ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+        {open
+          ? <ChevronUp size={16} className="text-gray-400" />
+          : <ChevronDown size={16} className="text-gray-400" />}
       </button>
       {open && <div className="border-t border-gray-100 dark:border-gray-800">{children}</div>}
     </Card>
@@ -62,30 +66,34 @@ function Section({ title, icon: Icon, count, accent, children, defaultOpen = tru
 
 export default function Reconciliation() {
   const { isAdmin } = useAuth()
-  const { campuses } = useCampuses()
+  const { campuses, getSubCampusesFor } = useCampuses()
 
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [subsidiary, setSubsidiary] = useState('all')
-  const [insuranceClass, setInsuranceClass] = useState('all')
+  const [data,          setData]          = useState(null)
+  const [loading,       setLoading]       = useState(true)
+  const [subsidiary,    setSubsidiary]    = useState('all')
+  const [insuranceClass,setInsuranceClass]= useState('all')
+  const [search,        setSearch]        = useState('')
+  const [autoLinking,   setAutoLinking]   = useState(false)
 
-  // Link dialog
-  const [linkDialog, setLinkDialog] = useState({ open: false, asset: null })
-  const [suggestions, setSuggestions] = useState([])
-  const [loadingSuggestions, setLoadingSuggestions] = useState(false)
-  const [linking, setLinking] = useState(false)
+  // ── Link dialog (for uninsured assets) ───────────────────────────────────
+  const [linkDialog,          setLinkDialog]          = useState({ open: false, asset: null })
+  const [suggestions,         setSuggestions]         = useState([])
+  const [loadingSuggestions,  setLoadingSuggestions]  = useState(false)
+  const [linking,             setLinking]             = useState(false)
 
-  // Auto-link
-  const [autoLinking, setAutoLinking] = useState(false)
+  // ── Add to register dialog (for ghost items) ─────────────────────────────
+  const [addDialog,    setAddDialog]    = useState({ open: false, ghost: null })
+  const [addForm,      setAddForm]      = useState({})
+  const [addCampusId,  setAddCampusId]  = useState('')
+  const [addSubCampusId, setAddSubCampusId] = useState('')
+  const [addSubmitting, setAddSubmitting] = useState(false)
 
-  // Search within sections
-  const [search, setSearch] = useState('')
-
+  // ─────────────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const params = {}
-      if (subsidiary !== 'all') params.subsidiary = subsidiary
+      if (subsidiary     !== 'all') params.subsidiary     = subsidiary
       if (insuranceClass !== 'all') params.insuranceClass = insuranceClass
       const result = await fetchReconciliation(params)
       setData(result)
@@ -98,7 +106,21 @@ export default function Reconciliation() {
 
   useEffect(() => { load() }, [load])
 
-  // ── Open the link dialog for an uninsured asset ───────────────────────────
+  // ── Auto-link ─────────────────────────────────────────────────────────────
+  const handleAutoLink = async () => {
+    setAutoLinking(true)
+    try {
+      const result = await runAutoLink()
+      toast.success(result.message)
+      await load()
+    } catch (err) {
+      toast.error(getApiError(err))
+    } finally {
+      setAutoLinking(false)
+    }
+  }
+
+  // ── Open link dialog for an uninsured asset ───────────────────────────────
   const openLinkDialog = async (asset) => {
     setLinkDialog({ open: true, asset })
     setLoadingSuggestions(true)
@@ -113,13 +135,13 @@ export default function Reconciliation() {
     }
   }
 
-  // ── Manually link ─────────────────────────────────────────────────────────
+  // ── Confirm link ──────────────────────────────────────────────────────────
   const handleLink = async (insuranceRecordId) => {
     if (!linkDialog.asset) return
     setLinking(true)
     try {
       await linkRecords(linkDialog.asset.assetId, insuranceRecordId)
-      toast.success('Linked successfully — insurance status updated on the asset')
+      toast.success('Linked — insurance status updated on the asset')
       setLinkDialog({ open: false, asset: null })
       await load()
     } catch (err) {
@@ -131,7 +153,7 @@ export default function Reconciliation() {
 
   // ── Unlink ────────────────────────────────────────────────────────────────
   const handleUnlink = async (assetId, assetCode) => {
-    if (!window.confirm(`Unlink Asset ${assetCode} from its insurance record? The asset status will become "Not Insured".`)) return
+    if (!window.confirm(`Unlink Asset ${assetCode}? Its status will become "Not Insured".`)) return
     try {
       await unlinkRecord(assetId)
       toast.success('Records unlinked')
@@ -141,32 +163,69 @@ export default function Reconciliation() {
     }
   }
 
-  // ── Auto-link all ─────────────────────────────────────────────────────────
-  const handleAutoLink = async () => {
-    setAutoLinking(true)
+  // ── Open "Add to asset register" dialog for a ghost item ─────────────────
+  const openAddDialog = (ghost) => {
+    setAddDialog({ open: true, ghost })
+    setAddCampusId('')
+    setAddSubCampusId('')
+    setAddForm({
+      subsidiary:      ghost.subsidiary   || '',
+      insuranceClass:  ghost.insuranceClass || '',
+      description:     ghost.description  || '',
+      serialNumber:    ghost.serialNumber || '',
+      quantity:        '1',
+      unitPrice:       String(ghost.sumInsured || ''),
+      insuranceStatus: 'Insured',
+      subLocation:     '',
+    })
+  }
+
+  // ── Submit new asset from ghost item ──────────────────────────────────────
+  const handleAddAsset = async (e) => {
+    e.preventDefault()
+    if (!addForm.description || !addForm.unitPrice) {
+      toast.error('Description and unit price are required')
+      return
+    }
+    setAddSubmitting(true)
     try {
-      const result = await runAutoLink()
-      toast.success(result.message)
-      await load()
+      const payload = {
+        subsidiary:      addForm.subsidiary,
+        insuranceClass:  addForm.insuranceClass,
+        description:     addForm.description.trim(),
+        serialNumber:    addForm.serialNumber?.trim() || '',
+        quantity:        Number(addForm.quantity) || 1,
+        unitPrice:       Number(addForm.unitPrice),
+        insuranceStatus: addForm.insuranceStatus || 'Insured',
+        subLocation:     addForm.subLocation || '',
+      }
+      await createAsset(payload)
+      toast.success(`Asset added and will auto-link to this insurance record`)
+      setAddDialog({ open: false, ghost: null })
+      // Reload after a short delay to let auto-link run server-side
+      setTimeout(() => load(), 800)
     } catch (err) {
       toast.error(getApiError(err))
     } finally {
-      setAutoLinking(false)
+      setAddSubmitting(false)
     }
   }
 
+  // ── Filter rows by search ─────────────────────────────────────────────────
   const q = search.toLowerCase()
   const filterRow = (row) => {
     if (!q) return true
     return [
-      row.assetCode, row.description, row.assetDescription, row.subsidiary,
-      row.serialNumber, row.insuranceClass,
+      row.assetCode, row.description, row.assetDescription,
+      row.subsidiary, row.serialNumber, row.insuranceClass,
     ].some((f) => f?.toLowerCase().includes(q))
   }
 
   const matched         = (data?.matched          || []).filter(filterRow)
   const ghostItems      = (data?.ghostItems        || []).filter(filterRow)
   const uninsuredAssets = (data?.uninsuredAssets   || []).filter(filterRow)
+
+  const addSubCampuses = addCampusId ? getSubCampusesFor(addCampusId) : []
 
   return (
     <Layout>
@@ -177,10 +236,10 @@ export default function Reconciliation() {
           <div>
             <h1 className="text-3xl font-bold text-nova-navy dark:text-white mb-1">Reconciliation</h1>
             <p className="text-gray-500 dark:text-gray-400">
-              Match your asset register against what the insurer has on record — find gaps and ghost items
+              Match your asset register against what the insurer has — find ghost items and uninsured assets
             </p>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={load} disabled={loading}>
               <RefreshCw size={14} />
             </Button>
@@ -190,6 +249,7 @@ export default function Reconciliation() {
                 size="sm"
                 onClick={handleAutoLink}
                 disabled={autoLinking || loading}
+                title="Auto-match all unlinked assets to the best-scoring insurance record"
               >
                 {autoLinking
                   ? <><Loader2 size={14} className="animate-spin" /> Linking…</>
@@ -220,7 +280,7 @@ export default function Reconciliation() {
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <Input
                 className="pl-9"
-                placeholder="Search by description, serial, campus…"
+                placeholder="Search description, serial, campus…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -232,11 +292,11 @@ export default function Reconciliation() {
         {data && (
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
             {[
-              { label: 'Matched',                value: data.summary.matchedCount,         colour: 'text-green-600',  sub: 'Linked both sides' },
-              { label: 'Ghost Items',             value: data.summary.ghostItemsCount,      colour: 'text-red-600',    sub: 'Insurance only — no asset' },
-              { label: 'Uninsured Assets',        value: data.summary.uninsuredAssetsCount, colour: 'text-amber-600',  sub: 'Asset only — no cover' },
-              { label: 'Monthly Premiums at Risk',value: `R ${fmt(data.summary.totalMonthlyAtRisk)}`, colour: 'text-red-600', sub: 'Paid for ghost items' },
-              { label: 'Uninsured Asset Value',   value: `R ${fmt(data.summary.totalUninsuredValue)}`, colour: 'text-amber-600', sub: 'Assets with no cover' },
+              { label: 'Matched',                    value: data.summary.matchedCount,                           colour: 'text-green-600',  sub: 'Linked both sides' },
+              { label: 'Ghost Items',                value: data.summary.ghostItemsCount,                       colour: 'text-red-600',    sub: 'Insurance — no asset' },
+              { label: 'Uninsured Assets',           value: data.summary.uninsuredAssetsCount,                  colour: 'text-amber-600',  sub: 'Asset — no cover' },
+              { label: 'Monthly Premiums at Risk',   value: `R ${fmt(data.summary.totalMonthlyAtRisk)}`,        colour: 'text-red-600',    sub: 'Paid for ghost items' },
+              { label: 'Uninsured Asset Value',      value: `R ${fmt(data.summary.totalUninsuredValue)}`,       colour: 'text-amber-600',  sub: 'No insurance cover' },
             ].map(({ label, value, colour, sub }) => (
               <Card key={label}><CardContent className="p-4">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
@@ -257,13 +317,13 @@ export default function Reconciliation() {
         {!loading && data && (
           <div className="space-y-4">
 
-            {/* ── GHOST ITEMS: Insurance but no Asset ─────────────────── */}
+            {/* ── GHOST ITEMS ──────────────────────────────────────────── */}
             <Section
-              title="Ghost Items — You're paying insurance for these but they're NOT in your asset register"
+              title="Ghost Items — Paying insurance for items NOT in your asset register"
               icon={AlertTriangle}
               count={ghostItems.length}
               accent="bg-red-500"
-              defaultOpen={true}
+              defaultOpen
             >
               {ghostItems.length === 0 ? (
                 <p className="px-5 py-6 text-sm text-gray-400">No ghost items — all insurance records have a matching asset.</p>
@@ -273,7 +333,7 @@ export default function Reconciliation() {
                     <thead>
                       <tr className="bg-red-50 dark:bg-red-900/10 border-b border-gray-100 dark:border-gray-800">
                         {['Campus', 'Class', 'Description', 'Serial #', 'Sum Insured', 'Monthly Premium', 'Status', 'Action'].map((h) => (
-                          <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                          <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -292,7 +352,14 @@ export default function Reconciliation() {
                             </span>
                           </td>
                           <td className="px-4 py-3">
-                            <span className="text-[10px] text-gray-400 italic">Add asset to register to link</span>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs gap-1.5 border-nova-green text-nova-green hover:bg-nova-green/10"
+                              onClick={() => openAddDialog(g)}
+                            >
+                              <Plus size={11} /> Add to Asset Register
+                            </Button>
                           </td>
                         </tr>
                       ))}
@@ -302,13 +369,13 @@ export default function Reconciliation() {
               )}
             </Section>
 
-            {/* ── UNINSURED ASSETS: Asset but no Insurance ────────────── */}
+            {/* ── UNINSURED ASSETS ──────────────────────────────────────── */}
             <Section
-              title="Uninsured Assets — These are in your asset register but have NO insurance cover"
+              title="Uninsured Assets — In your register but have NO insurance cover"
               icon={ShieldOff}
               count={uninsuredAssets.length}
               accent="bg-amber-500"
-              defaultOpen={true}
+              defaultOpen
             >
               {uninsuredAssets.length === 0 ? (
                 <p className="px-5 py-6 text-sm text-gray-400">All assets have insurance coverage.</p>
@@ -318,7 +385,7 @@ export default function Reconciliation() {
                     <thead>
                       <tr className="bg-amber-50 dark:bg-amber-900/10 border-b border-gray-100 dark:border-gray-800">
                         {['Asset ID', 'Campus', 'Class', 'Description', 'Serial #', 'Asset Value', 'Status', 'Action'].map((h) => (
-                          <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                          <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -354,7 +421,7 @@ export default function Reconciliation() {
               )}
             </Section>
 
-            {/* ── MATCHED: Both sides linked ───────────────────────────── */}
+            {/* ── MATCHED ───────────────────────────────────────────────── */}
             <Section
               title="Matched — Assets linked to insurance records"
               icon={CheckCircle2}
@@ -363,14 +430,14 @@ export default function Reconciliation() {
               defaultOpen={false}
             >
               {matched.length === 0 ? (
-                <p className="px-5 py-6 text-sm text-gray-400">No matched records yet. Use "Auto-Link All" or manually link items above.</p>
+                <p className="px-5 py-6 text-sm text-gray-400">No matched records yet. Use "Auto-Link All" or link items manually above.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-green-50 dark:bg-green-900/10 border-b border-gray-100 dark:border-gray-800">
                         {['Asset ID', 'Campus', 'Class', 'Description', 'Serial #', 'Asset Value', 'Sum Insured', 'Difference', 'Asset Status', 'Ins. Status', 'Action'].map((h) => (
-                          <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                          <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -418,7 +485,7 @@ export default function Reconciliation() {
         )}
       </div>
 
-      {/* ── Link Dialog ───────────────────────────────────────────────────── */}
+      {/* ── Link to Insurance Dialog (for uninsured assets) ──────────────── */}
       <Dialog open={linkDialog.open} onOpenChange={(v) => !v && setLinkDialog({ open: false, asset: null })}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
@@ -426,11 +493,9 @@ export default function Reconciliation() {
             <DialogDescription>
               {linkDialog.asset && (
                 <>
-                  Asset: <strong>{linkDialog.asset.assetCode}</strong> — {linkDialog.asset.description}
+                  <strong>{linkDialog.asset.assetCode}</strong> — {linkDialog.asset.description}
                   <br />
-                  <span className="text-xs text-gray-400">
-                    {linkDialog.asset.subsidiary} · {linkDialog.asset.insuranceClass}
-                  </span>
+                  <span className="text-xs text-gray-400">{linkDialog.asset.subsidiary} · {linkDialog.asset.insuranceClass}</span>
                 </>
               )}
             </DialogDescription>
@@ -443,17 +508,15 @@ export default function Reconciliation() {
                 <p className="text-sm">Finding best matches…</p>
               </div>
             ) : suggestions.length === 0 ? (
-              <div className="text-center py-10">
-                <ShieldOff size={32} className="mx-auto text-gray-300 mb-3" />
+              <div className="text-center py-10 space-y-2">
+                <ShieldOff size={32} className="mx-auto text-gray-300" />
                 <p className="text-sm text-gray-500">No matching insurance records found for this campus and class.</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Add an insurance record for this item first, then come back to link it.
-                </p>
+                <p className="text-xs text-gray-400">Add an insurance record for this item first, then come back to link it.</p>
               </div>
             ) : (
               <>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Top {suggestions.length} match{suggestions.length > 1 ? 'es' : ''} found based on campus, class, serial number and description. Select one to link.
+                <p className="text-xs text-gray-500">
+                  Top {suggestions.length} match{suggestions.length > 1 ? 'es' : ''} — scored by campus, class, serial and description. Select one to link.
                 </p>
                 <div className="space-y-2">
                   {suggestions.map(({ record, score }) => (
@@ -462,7 +525,7 @@ export default function Reconciliation() {
                       className="flex items-center justify-between gap-4 p-4 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-nova-green hover:bg-nova-green/5 transition-all"
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                             score >= 80 ? 'bg-green-100 text-green-700' :
                             score >= 60 ? 'bg-amber-100 text-amber-700' :
@@ -477,10 +540,10 @@ export default function Reconciliation() {
                         <p className="font-medium text-nova-navy dark:text-white text-sm truncate">
                           {record.descriptionDetails || record.assetOrInsurableRisk || '—'}
                         </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                        <p className="text-xs text-gray-500 mt-0.5">
                           {record.classOfInsurance}
-                          {record.serialNumber ? ` · SN: ${record.serialNumber}` : ''}
-                          {record.policyReference ? ` · Ref: ${record.policyReference}` : ''}
+                          {record.serialNumber    ? ` · SN: ${record.serialNumber}`        : ''}
+                          {record.policyReference ? ` · Ref: ${record.policyReference}`    : ''}
                         </p>
                         <p className="text-xs text-nova-teal font-semibold mt-1">
                           Sum Insured: R {fmt(record.sumInsured)}
@@ -493,9 +556,7 @@ export default function Reconciliation() {
                         onClick={() => handleLink(record._id)}
                         className="flex-shrink-0"
                       >
-                        {linking
-                          ? <Loader2 size={13} className="animate-spin" />
-                          : <><Link2 size={13} /> Link</>}
+                        {linking ? <Loader2 size={13} className="animate-spin" /> : <><Link2 size={13} /> Link</>}
                       </Button>
                     </div>
                   ))}
@@ -505,12 +566,139 @@ export default function Reconciliation() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setLinkDialog({ open: false, asset: null })}>
-              Cancel
-            </Button>
+            <Button variant="outline" onClick={() => setLinkDialog({ open: false, asset: null })}>Cancel</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Add Ghost Item to Asset Register Dialog ───────────────────────── */}
+      <Dialog open={addDialog.open} onOpenChange={(v) => !v && setAddDialog({ open: false, ghost: null })}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add to Asset Register</DialogTitle>
+            <DialogDescription>
+              Create an asset entry for this insurance record. It will be automatically linked after saving.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleAddAsset} className="space-y-4 pt-2">
+
+            {/* Campus select */}
+            <div className="space-y-1.5">
+              <Label>Campus *</Label>
+              <Select
+                value={addForm.subsidiary || '__none__'}
+                onValueChange={(v) => {
+                  const campus = campuses.find((c) => c.name === v)
+                  setAddCampusId(campus?._id || '')
+                  setAddSubCampusId('')
+                  setAddForm((p) => ({ ...p, subsidiary: v, subLocation: '' }))
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Select campus" /></SelectTrigger>
+                <SelectContent>
+                  {campuses.map((c) => <SelectItem key={c._id} value={c.name}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sub-campus */}
+            {addCampusId && addSubCampuses.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Sub-Campus</Label>
+                <Select
+                  value={addSubCampusId || '__none__'}
+                  onValueChange={(v) => {
+                    const sub = addSubCampuses.find((s) => s._id === v)
+                    setAddSubCampusId(v)
+                    setAddForm((p) => ({ ...p, subLocation: sub?.name || '' }))
+                  }}
+                >
+                  <SelectTrigger><SelectValue placeholder="Select sub-campus" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">— None —</SelectItem>
+                    {addSubCampuses.map((s) => <SelectItem key={s._id} value={s._id}>{s.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Insurance Class */}
+            <div className="space-y-1.5">
+              <Label>Insurance Class *</Label>
+              <Select
+                value={addForm.insuranceClass || ''}
+                onValueChange={(v) => setAddForm((p) => ({ ...p, insuranceClass: v }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
+                <SelectContent>
+                  {INSURANCE_CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5">
+              <Label>Item Description *</Label>
+              <Input
+                value={addForm.description || ''}
+                onChange={(e) => setAddForm((p) => ({ ...p, description: e.target.value }))}
+                placeholder="e.g. Acer Chromebook, Chair, Building…"
+                required
+              />
+            </div>
+
+            {/* Serial Number */}
+            <div className="space-y-1.5">
+              <Label>Serial Number</Label>
+              <Input
+                value={addForm.serialNumber || ''}
+                onChange={(e) => setAddForm((p) => ({ ...p, serialNumber: e.target.value }))}
+                placeholder="Leave blank if not applicable"
+                className="font-mono"
+              />
+            </div>
+
+            {/* Quantity + Unit Price */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Quantity</Label>
+                <Input
+                  type="number" min="1"
+                  value={addForm.quantity || '1'}
+                  onChange={(e) => setAddForm((p) => ({ ...p, quantity: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Unit Price (ZAR) *</Label>
+                <Input
+                  type="number" min="0" step="0.01"
+                  value={addForm.unitPrice || ''}
+                  onChange={(e) => setAddForm((p) => ({ ...p, unitPrice: e.target.value }))}
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="p-3 bg-nova-green/10 border border-nova-green/30 rounded-lg text-xs text-gray-600 dark:text-gray-400">
+              This asset will be created with status <strong>"Insured"</strong> and auto-linked to the insurance record.
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAddDialog({ open: false, ghost: null })}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={addSubmitting}>
+                {addSubmitting
+                  ? <><Loader2 size={14} className="animate-spin" /> Saving…</>
+                  : <><Plus size={14} /> Add Asset</>}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
     </Layout>
   )
 }

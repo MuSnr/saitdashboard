@@ -2,19 +2,37 @@
 
 @import "tailwindcss";
 
+/* ── Dark mode: triggered by .dark class on <html> ── */
+@variant dark (&:where(.dark, .dark *));
+
 @theme {
-  --color-nova-navy: #1a2e45;
+  --color-nova-navy:       #1a2e45;
   --color-nova-navy-light: #263f5a;
-  --color-nova-green: #22c55e;
-  --color-nova-green-light: #bbf7d0;
-  --color-nova-teal: #0ea5e9;
-  --color-nova-orange: #f59e0b;
+  --color-nova-green:      #22c55e;
+  --color-nova-green-light:#bbf7d0;
+  --color-nova-teal:       #0ea5e9;
+  --color-nova-orange:     #f59e0b;
 }
 
 * {
   font-family: "Poppins", sans-serif;
 }
 
+/* Smooth background/color transitions when toggling theme */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+/* Dark mode base overrides */
 .dark {
   color-scheme: dark;
+  background-color: #030712;
+  color: #f9fafb;
+}
+
+html, body {
+  min-height: 100vh;
+  background-color: inherit;
 }

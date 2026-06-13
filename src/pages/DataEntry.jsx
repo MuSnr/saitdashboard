@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Layout } from '@/components/Layout'
-import { Plus, Upload, X, Trash2, FileSpreadsheet, Loader2, Edit2, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Plus, Upload, X, Trash2, FileSpreadsheet, Loader2, Edit2, RefreshCw, AlertTriangle, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { fetchAssets, createAsset, updateAsset, deleteAsset, getApiError } from '@/services/api'
+import { fetchAssets, createAsset, updateAsset, deleteAsset, bulkImportAssets, downloadAssetTemplate, getApiError } from '@/services/api'
 import { useCampuses } from '@/context/CampusContext'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
@@ -82,6 +82,7 @@ export default function DataEntry() {
   const [submitting, setSubmitting] = useState(false)
   const [uploadFile, setUploadFile] = useState(null)
   const [uploading, setUploading] = useState(false)
+  const [importResult, setImportResult] = useState(null) // null | { inserted, skipped, errors, details }
 
   // Sub-campuses available for the currently selected campus
   const availableSubCampuses = form.campusId ? getSubCampusesFor(form.campusId) : []
@@ -218,13 +219,38 @@ export default function DataEntry() {
     }
   }
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const blob = await downloadAssetTemplate()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url; a.download = 'asset-register-template.xlsx'; a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      toast.error(getApiError(err))
+    }
+  }
+
   const handleBulkUpload = async () => {
     if (!uploadFile) { toast.error('Please select a file'); return }
     setUploading(true)
-    await new Promise((r) => setTimeout(r, 1500))
-    toast.info('Bulk import coming soon — use manual entry for now')
-    setUploadFile(null)
-    setUploading(false)
+    setImportResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', uploadFile)
+      const result = await bulkImportAssets(fd)
+      setImportResult(result)
+      if (result.inserted > 0) {
+        toast.success(`${result.inserted} asset${result.inserted !== 1 ? 's' : ''} imported`)
+        await load()
+      }
+      if (result.errors > 0) toast.warning(`${result.errors} row${result.errors !== 1 ? 's' : ''} had errors — see details below`)
+    } catch (err) {
+      toast.error(getApiError(err))
+    } finally {
+      setUploadFile(null)
+      setUploading(false)
+    }
   }
 
   // ── Totals ───────────────────────────────────────────────────────────────────
@@ -374,37 +400,127 @@ export default function DataEntry() {
           <TabsContent value="bulk">
             <Card>
               <CardHeader>
-                <CardTitle>Bulk Import from Excel</CardTitle>
-                <CardDescription>Upload the asset register Excel file. Columns must match the register format.</CardDescription>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle>Bulk Import from Excel</CardTitle>
+                    <CardDescription>Upload the asset register Excel file. Columns must match the register format.</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="flex-shrink-0 gap-1.5">
+                    <Download size={14} /> Download Template
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-5">
+                {/* Drop zone */}
                 <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-10 cursor-pointer hover:border-nova-green transition-colors bg-gray-50 dark:bg-gray-800/30">
                   <FileSpreadsheet size={36} className="text-nova-green" />
                   <div className="text-center">
                     <p className="font-medium text-nova-navy dark:text-white">
                       {uploadFile ? uploadFile.name : 'Click to select file or drag & drop'}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Excel (.xlsx, .xls) and CSV supported</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Excel (.xlsx, .xls) and CSV supported · max 10 MB</p>
                   </div>
                   {uploadFile && (
-                    <button type="button" onClick={(e) => { e.preventDefault(); setUploadFile(null) }} className="text-red-500 hover:text-red-700 transition-colors">
+                    <button type="button" onClick={(e) => { e.preventDefault(); setUploadFile(null); setImportResult(null) }}
+                      className="text-red-500 hover:text-red-700 transition-colors">
                       <X size={18} />
                     </button>
                   )}
-                  <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} />
+                  <input type="file" className="hidden" accept=".xlsx,.xls,.csv"
+                    onChange={(e) => { setUploadFile(e.target.files?.[0] || null); setImportResult(null) }} />
                 </label>
+
+                {/* Column guide */}
                 <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Expected columns</p>
-                  {['School (Campus)', 'Insurance Class', 'Item Description', 'Serial Number', 'Quantity', 'Unit Price (ZAR)', 'Sub-Location', 'Insurance Status'].map((col) => (
-                    <p key={col} className="flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-nova-green flex-shrink-0" />
-                      {col}
-                    </p>
-                  ))}
+                  <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Expected columns (header names are flexible)</p>
+                  <div className="grid grid-cols-2 gap-x-4">
+                    {[
+                      ['School / Campus *',     'required'],
+                      ['Insurance Class *',     'required'],
+                      ['Item Description *',    'required'],
+                      ['Unit Price (ZAR) *',    'required'],
+                      ['Serial Number',         'optional'],
+                      ['Quantity',              'optional, default 1'],
+                      ['Sub-Location',          'optional'],
+                      ['Insurance Status',      'optional'],
+                      ['Notes',                 'optional'],
+                    ].map(([col, hint]) => (
+                      <p key={col} className="flex items-center gap-2 py-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-nova-green flex-shrink-0" />
+                        <span className="font-medium text-gray-700 dark:text-gray-300">{col}</span>
+                        <span className="text-gray-400">— {hint}</span>
+                      </p>
+                    ))}
+                  </div>
                 </div>
-                <Button onClick={handleBulkUpload} disabled={!uploadFile || uploading} variant="secondary" className="w-full">
-                  {uploading ? <><Loader2 size={14} className="animate-spin" /> Importing…</> : <><Upload size={16} /> Upload & Import</>}
+
+                {/* Upload button */}
+                <Button onClick={handleBulkUpload} disabled={!uploadFile || uploading} className="w-full">
+                  {uploading
+                    ? <><Loader2 size={14} className="animate-spin" /> Importing…</>
+                    : <><Upload size={16} /> Upload & Import</>}
                 </Button>
+
+                {/* Results */}
+                {importResult && (
+                  <div className="space-y-3">
+                    {/* Summary pills */}
+                    <div className="flex flex-wrap gap-3">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                        <span className="text-sm font-semibold text-green-700 dark:text-green-400">{importResult.inserted} imported</span>
+                      </div>
+                      {importResult.skipped > 0 && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                          <span className="w-2 h-2 rounded-full bg-amber-500" />
+                          <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">{importResult.skipped} skipped</span>
+                        </div>
+                      )}
+                      {importResult.errors > 0 && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                          <span className="w-2 h-2 rounded-full bg-red-500" />
+                          <span className="text-sm font-semibold text-red-700 dark:text-red-400">{importResult.errors} errors</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Inserted list */}
+                    {importResult.details?.inserted?.length > 0 && (
+                      <div className="rounded-lg border border-green-200 dark:border-green-800 overflow-hidden">
+                        <p className="px-3 py-2 text-xs font-semibold bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400">
+                          Imported assets
+                        </p>
+                        <div className="max-h-40 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+                          {importResult.details.inserted.map((r, i) => (
+                            <div key={i} className="flex items-center gap-3 px-3 py-2 text-xs">
+                              <span className="font-mono text-gray-400">{r.assetId}</span>
+                              <span className="text-gray-700 dark:text-gray-300 truncate">{r.description}</span>
+                              <span className="text-gray-400 ml-auto">row {r.row}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Error list */}
+                    {importResult.details?.errors?.length > 0 && (
+                      <div className="rounded-lg border border-red-200 dark:border-red-800 overflow-hidden">
+                        <p className="px-3 py-2 text-xs font-semibold bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400">
+                          Rows with errors (fix and re-upload)
+                        </p>
+                        <div className="max-h-40 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+                          {importResult.details.errors.map((r, i) => (
+                            <div key={i} className="flex items-center gap-3 px-3 py-2 text-xs">
+                              <span className="text-gray-400 flex-shrink-0">row {r.row}</span>
+                              <span className="text-red-600 dark:text-red-400">{r.reason}</span>
+                              {r.description && <span className="text-gray-400 truncate ml-auto">{r.description}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

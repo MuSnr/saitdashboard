@@ -50,6 +50,13 @@ export const fetchAssets  = (params) =>
 export const createAsset  = (data)        => api.post('/assets', data).then((r) => r.data)
 export const updateAsset  = (id, data)    => api.put(`/assets/${id}`, data).then((r) => r.data)
 export const deleteAsset  = (id)          => api.delete(`/assets/${id}`).then((r) => r.data)
+export const bulkImportAssets = (formData) =>
+  api.post('/assets/bulk', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000,
+  }).then((r) => r.data)
+export const downloadAssetTemplate = () =>
+  api.get('/assets/template', { responseType: 'blob' }).then((r) => r.data)
 
 // ── Insurance Register ────────────────────────────────────────────────────────
 export const fetchInsuranceRecords  = () =>
