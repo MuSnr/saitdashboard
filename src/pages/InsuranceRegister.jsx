@@ -1,17 +1,18 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Layout } from '@/components/Layout'
-import { Plus, Trash2, Upload, File, X, Shield, Edit2, Loader2, RefreshCw, Link2, Unlink } from 'lucide-react'
+import { Plus, Trash2, Upload, File, X, Shield, Edit2, Loader2, RefreshCw, Link2, Unlink, Download, FileSpreadsheet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import {
   fetchInsuranceRecords, createInsuranceRecord, updateInsuranceRecord,
-  deleteInsuranceRecord, getApiError,
+  deleteInsuranceRecord, bulkImportInsurance, downloadInsuranceTemplate, getApiError,
 } from '@/services/api'
 import { useCampuses } from '@/context/CampusContext'
 import { Link } from 'react-router-dom'
@@ -37,7 +38,8 @@ const blank = {
   subsidiary: '', status: 'Active', monthYrAcquisition: '', classOfInsurance: '',
   assetOrInsurableRisk: '', descriptionDetails: '', brandModel: '', serialNumber: '',
   quantity: '1', unitCost: '', monthlyPremium: '', sumInsured: '', rate: '',
-  december2025Premium: '', interestNoted: '', vendor: '', notes: '',
+  december2025Premium: '', premiumYear: String(new Date().getFullYear()),
+  interestNoted: '', vendor: '', notes: '',
   category: 'Asset Based', policyReference: '',
 }
 
@@ -51,8 +53,14 @@ export default function InsuranceRegister() {
   const [files, setFiles] = useState([])
   const [submitting, setSubmitting] = useState(false)
 
+  // ── Bulk upload state ──────────────────────────────────────────────────────
+  const [bulkFile,     setBulkFile]     = useState(null)
+  const [bulkUploading,setBulkUploading]= useState(false)
+  const [bulkResult,   setBulkResult]   = useState(null)
+
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }))
   const setF = (k) => (e) => set(k, e.target.value)
+  const currentYear = new Date().getFullYear()
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -86,7 +94,9 @@ export default function InsuranceRegister() {
       serialNumber: r.serialNumber || '', quantity: String(r.quantity || 1),
       unitCost: String(r.unitCost || ''), monthlyPremium: String(r.monthlyPremium || ''),
       sumInsured: String(r.sumInsured || ''), rate: String(r.rate || ''),
-      december2025Premium: String(r.december2025Premium || ''), interestNoted: r.interestNoted || '',
+      december2025Premium: String(r.annualPremium ?? r.december2025Premium ?? ''),
+      premiumYear: String(r.premiumYear || new Date().getFullYear()),
+      interestNoted: r.interestNoted || '',
       vendor: r.vendor || '', notes: r.notes || '', category: r.category || 'Asset Based',
       policyReference: r.policyReference || '',
     })
@@ -108,6 +118,8 @@ export default function InsuranceRegister() {
       monthlyPremium: Number(form.monthlyPremium) || 0,
       sumInsured: Number(form.sumInsured),
       rate: Number(form.rate) || 0,
+      annualPremium: Number(form.december2025Premium) || 0,
+      premiumYear: Number(form.premiumYear) || currentYear,
       december2025Premium: Number(form.december2025Premium) || 0,
     }
     try {
@@ -141,8 +153,42 @@ export default function InsuranceRegister() {
     }
   }
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const blob = await downloadInsuranceTemplate()
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url; a.download = 'insurance-register-template.xlsx'; a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      toast.error(getApiError(err))
+    }
+  }
+
+  const handleBulkUpload = async () => {
+    if (!bulkFile) { toast.error('Please select a file'); return }
+    setBulkUploading(true)
+    setBulkResult(null)
+    try {
+      const fd = new FormData()
+      fd.append('file', bulkFile)
+      const result = await bulkImportInsurance(fd)
+      setBulkResult(result)
+      if (result.inserted > 0) {
+        toast.success(`${result.inserted} record${result.inserted !== 1 ? 's' : ''} imported`)
+        await load()
+      }
+      if (result.errors > 0) toast.warning(`${result.errors} row${result.errors !== 1 ? 's' : ''} had errors`)
+    } catch (err) {
+      toast.error(getApiError(err))
+    } finally {
+      setBulkFile(null)
+      setBulkUploading(false)
+    }
+  }
+
   const totalSumInsured = records.reduce((s, r) => s + (r.sumInsured || 0), 0)
-  const totalMonthly = records.reduce((s, r) => s + (r.monthlyPremium || 0), 0)
+  const totalMonthly    = records.reduce((s, r) => s + (r.monthlyPremium || 0), 0)
 
   return (
     <Layout>
@@ -191,6 +237,14 @@ export default function InsuranceRegister() {
         </div>
 
         {/* Table */}
+        <Tabs defaultValue="records">
+          <TabsList>
+            <TabsTrigger value="records">Records List</TabsTrigger>
+            <TabsTrigger value="bulk">Bulk Import</TabsTrigger>
+          </TabsList>
+
+          {/* Records tab */}
+          <TabsContent value="records">
         <Card className="overflow-hidden">
           <CardHeader className="py-4 border-b border-gray-200 dark:border-gray-800">
             <CardTitle className="text-base">
@@ -207,7 +261,7 @@ export default function InsuranceRegister() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                    {['Subsidiary', 'Status', 'Class', 'Description', 'Linked Asset', 'Sum Insured', 'Monthly Premium', 'Dec 2025 Premium', ''].map((h) => (
+                    {['Subsidiary', 'Status', 'Class', 'Description', 'Linked Asset', 'Sum Insured', 'Monthly Premium', 'Annual Premium', ''].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -243,7 +297,14 @@ export default function InsuranceRegister() {
                       </td>
                       <td className="px-4 py-3 font-semibold text-nova-teal text-xs tabular-nums">R {(r.sumInsured || 0).toLocaleString()}</td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs tabular-nums">R {(r.monthlyPremium || 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs tabular-nums">R {(r.december2025Premium || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs tabular-nums">
+                        <span className="text-nova-teal font-medium">
+                          R {((r.annualPremium ?? r.december2025Premium) || 0).toLocaleString()}
+                        </span>
+                        {r.premiumYear && (
+                          <span className="ml-1 text-[10px] text-gray-400">({r.premiumYear})</span>
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-nova-teal hover:bg-nova-teal/10 transition-colors"><Edit2 size={14} /></button>
@@ -257,6 +318,96 @@ export default function InsuranceRegister() {
             </div>
           )}
         </Card>
+          </TabsContent>
+
+          {/* Bulk Import tab */}
+          <TabsContent value="bulk">
+            <Card>
+              <CardHeader>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle>Bulk Import Insurance Records</CardTitle>
+                    <CardDescription>Upload an Excel or CSV file to import multiple records at once.</CardDescription>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={handleDownloadTemplate} className="gap-1.5 flex-shrink-0">
+                    <Download size={14} /> Download Template
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <label className="flex flex-col items-center justify-center gap-3 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-10 cursor-pointer hover:border-nova-green transition-colors bg-gray-50 dark:bg-gray-800/30">
+                  <FileSpreadsheet size={36} className="text-nova-green" />
+                  <div className="text-center">
+                    <p className="font-medium text-nova-navy dark:text-white">{bulkFile ? bulkFile.name : 'Click to select file or drag & drop'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Excel (.xlsx, .xls) and CSV — max 10 MB</p>
+                  </div>
+                  {bulkFile && (
+                    <button type="button" onClick={(e) => { e.preventDefault(); setBulkFile(null); setBulkResult(null) }} className="text-red-500 hover:text-red-700"><X size={18} /></button>
+                  )}
+                  <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={(e) => { setBulkFile(e.target.files?.[0] || null); setBulkResult(null) }} />
+                </label>
+                <div className="text-xs text-gray-500 dark:text-gray-400 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                  <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Required columns</p>
+                  <div className="grid grid-cols-2 gap-x-4">
+                    {[['School (Campus) *','required'],['Class of Insurance *','required'],['Sum Insured (R) *','required'],['Status','default: Active'],['Description Details','optional'],['Serial Number','optional'],['Monthly Premium (R)','optional'],['Policy Reference','optional']].map(([col, hint]) => (
+                      <p key={col} className="flex items-center gap-2 py-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-nova-green flex-shrink-0" />
+                        <span className="font-medium text-gray-700 dark:text-gray-300">{col}</span>
+                        <span className="text-gray-400">— {hint}</span>
+                      </p>
+                    ))}
+                  </div>
+                </div>
+                <Button onClick={handleBulkUpload} disabled={!bulkFile || bulkUploading} className="w-full">
+                  {bulkUploading ? <><Loader2 size={14} className="animate-spin" /> Importing…</> : <><Upload size={16} /> Upload & Import</>}
+                </Button>
+                {bulkResult && (
+                  <div className="space-y-3">
+                    {/* Detected headers — critical for diagnosing column mismatches */}
+                    {bulkResult.details?.rawHeaders && (
+                      <div className="p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Columns detected in your file:</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400 font-mono break-all">
+                          {bulkResult.details.rawHeaders.join(' | ')}
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-3">
+                      <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-lg">
+                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                        <span className="text-sm font-semibold text-green-700 dark:text-green-400">{bulkResult.inserted} imported</span>
+                      </div>
+                      {bulkResult.errors > 0 && (
+                        <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 rounded-lg">
+                          <span className="w-2 h-2 rounded-full bg-red-500" />
+                          <span className="text-sm font-semibold text-red-700 dark:text-red-400">
+                            {bulkResult.details?.totalErrors || bulkResult.errors} errors
+                            {bulkResult.details?.totalErrors > 20 ? ' (showing first 20)' : ''}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {bulkResult.details?.errors?.length > 0 && (
+                      <div className="rounded-lg border border-red-200 dark:border-red-800 overflow-hidden">
+                        <p className="px-3 py-2 text-xs font-semibold bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400">
+                          Error details — check your column names match the template
+                        </p>
+                        <div className="max-h-52 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
+                          {bulkResult.details.errors.map((r, i) => (
+                            <div key={i} className="flex items-start gap-3 px-3 py-2 text-xs">
+                              <span className="text-gray-400 flex-shrink-0 font-mono">row {r.row}</span>
+                              <span className="text-red-600 dark:text-red-400">{r.reason}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Dialog */}
@@ -333,7 +484,22 @@ export default function InsuranceRegister() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="space-y-1.5"><Label>Monthly Premium (R)</Label><Input type="number" value={form.monthlyPremium} onChange={setF('monthlyPremium')} step="0.01" /></div>
               <div className="space-y-1.5"><Label>Rate (%)</Label><Input type="number" value={form.rate} onChange={setF('rate')} step="0.01" /></div>
-              <div className="space-y-1.5"><Label>Dec 2025 Premium</Label><Input type="number" value={form.december2025Premium} onChange={setF('december2025Premium')} step="0.01" /></div>
+              <div className="space-y-1.5">
+                <Label>Annual Premium (R)</Label>
+                <Input type="number" value={form.december2025Premium} onChange={setF('december2025Premium')} step="0.01" placeholder={`e.g. ${currentYear} premium`} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Premium Year</Label>
+                <select
+                  value={form.premiumYear || currentYear}
+                  onChange={(e) => set('premiumYear', e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  {[currentYear - 1, currentYear, currentYear + 1, currentYear + 2].map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
               <div className="space-y-1.5"><Label>Vendor</Label><Input value={form.vendor} onChange={setF('vendor')} placeholder="Vendor" /></div>
             </div>
 

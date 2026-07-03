@@ -53,7 +53,7 @@ export const deleteAsset  = (id)          => api.delete(`/assets/${id}`).then((r
 export const bulkImportAssets = (formData) =>
   api.post('/assets/bulk', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 60000,
+    timeout: 300000,
   }).then((r) => r.data)
 export const downloadAssetTemplate = () =>
   api.get('/assets/template', { responseType: 'blob' }).then((r) => r.data)
@@ -64,6 +64,13 @@ export const fetchInsuranceRecords  = () =>
 export const createInsuranceRecord  = (data)     => api.post('/insurance-register', data).then((r) => r.data)
 export const updateInsuranceRecord  = (id, data) => api.put(`/insurance-register/${id}`, data).then((r) => r.data)
 export const deleteInsuranceRecord  = (id)       => api.delete(`/insurance-register/${id}`).then((r) => r.data)
+export const bulkImportInsurance    = (formData) =>
+  api.post('/insurance-register/bulk', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 300000,   // 5 minutes for large files (2400+ rows)
+  }).then((r) => r.data)
+export const downloadInsuranceTemplate = () =>
+  api.get('/insurance-register/template', { responseType: 'blob' }).then((r) => r.data)
 
 // ── Claims ────────────────────────────────────────────────────────────────────
 export const fetchClaims  = () =>
@@ -71,6 +78,13 @@ export const fetchClaims  = () =>
 export const createClaim  = (data)     => api.post('/claims', data).then((r) => r.data)
 export const updateClaim  = (id, data) => api.put(`/claims/${id}`, data).then((r) => r.data)
 export const deleteClaim  = (id)       => api.delete(`/claims/${id}`).then((r) => r.data)
+export const bulkImportClaims = (formData) =>
+  api.post('/claims/bulk', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000,
+  }).then((r) => r.data)
+export const downloadClaimsTemplate = () =>
+  api.get('/claims/template', { responseType: 'blob' }).then((r) => r.data)
 
 // ── Reports ───────────────────────────────────────────────────────────────────
 export const fetchVarianceReport = (params) =>
@@ -86,6 +100,13 @@ export const fetchPolicies  = () =>
 export const createPolicy   = (data)     => api.post('/policies', data).then((r) => r.data)
 export const updatePolicy   = (id, data) => api.put(`/policies/${id}`, data).then((r) => r.data)
 export const deletePolicy   = (id)       => api.delete(`/policies/${id}`).then((r) => r.data)
+export const bulkImportPolicies = (formData) =>
+  api.post('/policies/bulk', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000,
+  }).then((r) => r.data)
+export const downloadPoliciesTemplate = () =>
+  api.get('/policies/template', { responseType: 'blob' }).then((r) => r.data)
 
 // ── Users (admin) ─────────────────────────────────────────────────────────────
 export const fetchUsers   = () =>
