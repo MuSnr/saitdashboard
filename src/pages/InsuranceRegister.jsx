@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
@@ -472,234 +471,223 @@ export default function InsuranceRegister() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editRecord ? 'Edit Insurance Record' : 'Add Insurance Record'}</DialogTitle></DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label>Subsidiary *</Label>
-                <Select value={form.subsidiary} onValueChange={(v) => set('subsidiary', v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={campusLoading ? 'Loading campuses…' : 'Select campus'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {campusOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={(v) => set('status', v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{statuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Month/Yr Acquisition</Label>
-                <Input value={form.monthYrAcquisition} onChange={setF('monthYrAcquisition')} placeholder="Jan-2025" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Class of Insurance *</Label>
-                <Select value={form.classOfInsurance} onValueChange={(v) => set('classOfInsurance', v)}>
-                  <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
-                  <SelectContent>{insuranceClasses.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Category</Label>
-                <Select value={form.category} onValueChange={(v) => set('category', v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Policy Reference</Label>
-                <Input value={form.policyReference} onChange={setF('policyReference')} placeholder="PIONE002/0001" />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Asset / Insurable Risk</Label>
-                <Input value={form.assetOrInsurableRisk} onChange={setF('assetOrInsurableRisk')} placeholder="Building, Equipment…" />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Brand – Model</Label>
-                <Input value={form.brandModel} onChange={setF('brandModel')} placeholder="Dell XPS 13" />
-              </div>
-            </div>
-
+            {/* ── Campus (always shown) ─────────────────────────────────── */}
             <div className="space-y-1.5">
-              <Label>Description / Details</Label>
-              <Textarea value={form.descriptionDetails} onChange={setF('descriptionDetails')} placeholder="Detailed description…" rows={2} />
+              <Label>Campus *</Label>
+              <Select value={form.subsidiary} onValueChange={(v) => set('subsidiary', v)}>
+                <SelectTrigger><SelectValue placeholder={campusLoading ? 'Loading campuses…' : 'Select campus'} /></SelectTrigger>
+                <SelectContent>{campusOptions.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+              </Select>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="space-y-1.5"><Label>Serial Number</Label><Input value={form.serialNumber} onChange={setF('serialNumber')} placeholder="Serial #" /></div>
-              <div className="space-y-1.5"><Label>Quantity</Label><Input type="number" value={form.quantity} onChange={setF('quantity')} min="1" /></div>
-              <div className="space-y-1.5"><Label>Unit Cost (R)</Label><Input type="number" value={form.unitCost} onChange={setF('unitCost')} step="0.01" /></div>
-              <div className="space-y-1.5"><Label>Sum Insured (R) *</Label><Input type="number" value={form.sumInsured} onChange={setF('sumInsured')} step="0.01" required /></div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="space-y-1.5"><Label>Monthly Premium (R)</Label><Input type="number" value={form.monthlyPremium} onChange={setF('monthlyPremium')} step="0.01" /></div>
-              <div className="space-y-1.5"><Label>Rate (%)</Label><Input type="number" value={form.rate} onChange={setF('rate')} step="0.01" /></div>
-              <div className="space-y-1.5">
-                <Label>Annual Premium (R)</Label>
-                <Input type="number" value={form.december2025Premium} onChange={setF('december2025Premium')} step="0.01" placeholder={`e.g. ${currentYear} premium`} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Premium Year</Label>
-                <select
-                  value={form.premiumYear || currentYear}
-                  onChange={(e) => set('premiumYear', e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                >
-                  {[currentYear - 1, currentYear, currentYear + 1, currentYear + 2].map((y) => (
-                    <option key={y} value={y}>{y}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1.5"><Label>Vendor</Label><Input value={form.vendor} onChange={setF('vendor')} placeholder="Vendor" /></div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>Interest Noted</Label><Input value={form.interestNoted} onChange={setF('interestNoted')} /></div>
-              <div className="space-y-1.5"><Label>Notes</Label><Input value={form.notes} onChange={setF('notes')} /></div>
-            </div>
-
-            {/* ── Kenya Admin Fields ─────────────────────────────────────────── */}
-            {isAdmin && (
-              <>
-                <Separator />
-                <p className="text-sm font-semibold text-nova-navy dark:text-white">Kenya Register Fields</p>
-
-                {/* Mandatory document link */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Invoice / Document Link {isKenya && <span className="text-red-500">*</span>}</Label>
-                    <Input value={form.document_link} onChange={setF('document_link')} placeholder="https://drive.google.com/…" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>PR Reference</Label>
-                    <Input value={form.pr_ref} onChange={setF('pr_ref')} placeholder="PR-2025-001" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Physical Location</Label>
-                    <Input value={form.physical_location} onChange={setF('physical_location')} placeholder="Building / Room" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Procuring Department</Label>
-                    <Input value={form.procuring_department} onChange={setF('procuring_department')} placeholder="Finance, IT…" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Asset Class</Label>
-                    <Input value={form.asset_class} onChange={setF('asset_class')} placeholder="Furniture, IT Equipment…" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Year of Purchase</Label>
-                    <Input type="number" value={form.year_of_purchase} onChange={setF('year_of_purchase')} placeholder="2022" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Years of Service</Label>
-                    <Input type="number" value={form.years_of_service} onChange={setF('years_of_service')} placeholder="3" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Age Bracket</Label>
-                    <Select value={form.age_bracket || '__none__'} onValueChange={(v) => set('age_bracket', v === '__none__' ? '' : v)}>
-                      <SelectTrigger><SelectValue placeholder="Select bracket" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— None —</SelectItem>
-                        {['<2.5 Yrs','2.5 - 5.0 Yrs','5.0 - 7.5 Yrs','7.5 - 10 Yrs','10> Yrs'].map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Insurance Priority</Label>
-                    <Select value={form.insurance_priority || '__none__'} onValueChange={(v) => set('insurance_priority', v === '__none__' ? '' : v)}>
-                      <SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— None —</SelectItem>
-                        {['High','Medium','Low','Nil','Expensed','Leased'].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Asset Usage Status</Label>
-                    <Select value={form.asset_usage_status || '__none__'} onValueChange={(v) => set('asset_usage_status', v === '__none__' ? '' : v)}>
-                      <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— None —</SelectItem>
-                        {['In Use','Retired or Lost'].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Ownership</Label>
-                    <Select value={form.ownership || '__none__'} onValueChange={(v) => set('ownership', v === '__none__' ? '' : v)}>
-                      <SelectTrigger><SelectValue placeholder="Select ownership" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">— None —</SelectItem>
-                        {['NP Owned','Leased','NCBA Owned','Other'].map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Qty Insured</Label>
-                    <Input type="number" min="0" value={form.quantity_insured} onChange={setF('quantity_insured')} placeholder="0" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Qty Retired</Label>
-                    <Input type="number" min="0" value={form.quantity_retired} onChange={setF('quantity_retired')} placeholder="0" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Retired Value ({currencySymbol})</Label>
-                    <Input type="number" min="0" step="0.01" value={form.retired_asset_value} onChange={setF('retired_asset_value')} placeholder="0.00" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Insurable Value ({currencySymbol})</Label>
-                    <Input type="number" min="0" step="0.01" value={form.insurable_value} onChange={setF('insurable_value')} placeholder="0.00" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Retire / Write-off Date</Label>
-                    <Input type="date" value={form.retire_write_off_date} onChange={setF('retire_write_off_date')} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Status Detail</Label>
-                    <Input value={form.status_detail} onChange={setF('status_detail')} placeholder="Additional status info" />
-                  </div>
-                </div>
-
+            {/* ══ KENYA FORM ══════════════════════════════════════════════ */}
+            {isKenya && (<>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label>Comments</Label>
-                  <Textarea value={form.comments} onChange={setF('comments')} rows={2} placeholder="Internal admin comments" />
+                  <Label>Status</Label>
+                  <Select value={form.status} onValueChange={(v) => set('status', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{statuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  </Select>
                 </div>
+                <div className="space-y-1.5"><Label>Asset Class</Label><Input value={form.asset_class} onChange={setF('asset_class')} placeholder="Furniture, IT Equipment…" /></div>
+              </div>
 
-                <div className="flex items-center gap-6">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={form.is_insured} onChange={(e) => set('is_insured', e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-nova-green" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Is Insured</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={form.uninsured_flag} onChange={(e) => set('uninsured_flag', e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-red-500" />
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Uninsured Flag</span>
-                  </label>
+              <div className="space-y-1.5">
+                <Label>Description / Details</Label>
+                <Textarea value={form.descriptionDetails} onChange={setF('descriptionDetails')} placeholder="Detailed description…" rows={2} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5"><Label>Physical Location</Label><Input value={form.physical_location} onChange={setF('physical_location')} placeholder="Building / Room" /></div>
+                <div className="space-y-1.5"><Label>Procuring Department</Label><Input value={form.procuring_department} onChange={setF('procuring_department')} placeholder="Finance, IT…" /></div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5"><Label>Quantity</Label><Input type="number" value={form.quantity} onChange={setF('quantity')} min="1" /></div>
+                <div className="space-y-1.5"><Label>Unit Cost ({currencySymbol})</Label><Input type="number" value={form.unitCost} onChange={setF('unitCost')} step="0.01" /></div>
+                <div className="space-y-1.5">
+                  <Label>Sum Insured ({currencySymbol}) *</Label>
+                  <Input type="number" value={form.sumInsured} onChange={setF('sumInsured')} step="0.01" required />
+                  <p className="text-[10px] text-gray-400">Auto-locked to asset Total Cost on save</p>
                 </div>
-              </>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5"><Label>Year of Purchase</Label><Input type="number" value={form.year_of_purchase} onChange={setF('year_of_purchase')} placeholder="2022" /></div>
+                <div className="space-y-1.5"><Label>Years of Service</Label><Input type="number" value={form.years_of_service} onChange={setF('years_of_service')} placeholder="3" /></div>
+                <div className="space-y-1.5">
+                  <Label>Age Bracket</Label>
+                  <Select value={form.age_bracket || '__none__'} onValueChange={(v) => set('age_bracket', v === '__none__' ? '' : v)}>
+                    <SelectTrigger><SelectValue placeholder="Select bracket" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {['<2.5 Yrs','2.5 - 5.0 Yrs','5.0 - 7.5 Yrs','7.5 - 10 Yrs','10> Yrs'].map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Insurance Priority</Label>
+                  <Select value={form.insurance_priority || '__none__'} onValueChange={(v) => set('insurance_priority', v === '__none__' ? '' : v)}>
+                    <SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {['High','Medium','Low','Nil','Expensed','Leased'].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Asset Usage Status</Label>
+                  <Select value={form.asset_usage_status || '__none__'} onValueChange={(v) => set('asset_usage_status', v === '__none__' ? '' : v)}>
+                    <SelectTrigger><SelectValue placeholder="Usage" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {['In Use','Retired or Lost'].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Ownership</Label>
+                  <Select value={form.ownership || '__none__'} onValueChange={(v) => set('ownership', v === '__none__' ? '' : v)}>
+                    <SelectTrigger><SelectValue placeholder="Ownership" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {['NP Owned','Leased','NCBA Owned','Other'].map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1.5"><Label>Annual Premium ({currencySymbol})</Label><Input type="number" value={form.december2025Premium} onChange={setF('december2025Premium')} step="0.01" placeholder="0.00" /></div>
+                <div className="space-y-1.5"><Label>Qty Insured</Label><Input type="number" min="0" value={form.quantity_insured} onChange={setF('quantity_insured')} placeholder="0" /></div>
+                <div className="space-y-1.5"><Label>Qty Retired</Label><Input type="number" min="0" value={form.quantity_retired} onChange={setF('quantity_retired')} placeholder="0" /></div>
+                <div className="space-y-1.5"><Label>Retired Value ({currencySymbol})</Label><Input type="number" min="0" step="0.01" value={form.retired_asset_value} onChange={setF('retired_asset_value')} placeholder="0.00" /></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Invoice / Document Link <span className="text-red-500">*</span></Label>
+                  <Input value={form.document_link} onChange={setF('document_link')} placeholder="https://drive.google.com/…" />
+                  <p className="text-[10px] text-gray-400">Proof of value — required for KE audit</p>
+                </div>
+                <div className="space-y-1.5"><Label>PR Reference</Label><Input value={form.pr_ref} onChange={setF('pr_ref')} placeholder="PR-2025-001" /></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5"><Label>Retire / Write-off Date</Label><Input type="date" value={form.retire_write_off_date} onChange={setF('retire_write_off_date')} /></div>
+                <div className="space-y-1.5"><Label>Status Detail</Label><Input value={form.status_detail} onChange={setF('status_detail')} placeholder="Additional status info" /></div>
+              </div>
+
+              <div className="space-y-1.5"><Label>Comments</Label><Textarea value={form.comments} onChange={setF('comments')} rows={2} placeholder="Internal admin comments" /></div>
+
+              <div className="flex items-center gap-6">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.is_insured} onChange={(e) => set('is_insured', e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-nova-green" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Is Insured</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={form.uninsured_flag} onChange={(e) => set('uninsured_flag', e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-red-500" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Uninsured Flag</span>
+                </label>
+              </div>
+
+              <div className="space-y-1.5"><Label>Notes</Label><Input value={form.notes} onChange={setF('notes')} placeholder="Any additional notes…" /></div>
+            </>)}
+
+            {/* ══ SOUTH AFRICA FORM ══════════════════════════════════════ */}
+            {!isKenya && (<>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Status</Label>
+                  <Select value={form.status} onValueChange={(v) => set('status', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{statuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5"><Label>Month/Yr Acquisition</Label><Input value={form.monthYrAcquisition} onChange={setF('monthYrAcquisition')} placeholder="Jan-2025" /></div>
+                <div className="space-y-1.5">
+                  <Label>Class of Insurance *</Label>
+                  <Select value={form.classOfInsurance} onValueChange={(v) => set('classOfInsurance', v)}>
+                    <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
+                    <SelectContent>{insuranceClasses.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Category</Label>
+                  <Select value={form.category} onValueChange={(v) => set('category', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5"><Label>Policy Reference</Label><Input value={form.policyReference} onChange={setF('policyReference')} placeholder="PIONE002/0001" /></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5"><Label>Asset / Insurable Risk</Label><Input value={form.assetOrInsurableRisk} onChange={setF('assetOrInsurableRisk')} placeholder="Building, Equipment…" /></div>
+                <div className="space-y-1.5"><Label>Brand – Model</Label><Input value={form.brandModel} onChange={setF('brandModel')} placeholder="Dell XPS 13" /></div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Description / Details</Label>
+                <Textarea value={form.descriptionDetails} onChange={setF('descriptionDetails')} placeholder="Detailed description…" rows={2} />
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1.5"><Label>Serial Number</Label><Input value={form.serialNumber} onChange={setF('serialNumber')} placeholder="Serial #" /></div>
+                <div className="space-y-1.5"><Label>Quantity</Label><Input type="number" value={form.quantity} onChange={setF('quantity')} min="1" /></div>
+                <div className="space-y-1.5"><Label>Unit Cost ({currencySymbol})</Label><Input type="number" value={form.unitCost} onChange={setF('unitCost')} step="0.01" /></div>
+                <div className="space-y-1.5"><Label>Sum Insured ({currencySymbol}) *</Label><Input type="number" value={form.sumInsured} onChange={setF('sumInsured')} step="0.01" required /></div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="space-y-1.5"><Label>Monthly Premium ({currencySymbol})</Label><Input type="number" value={form.monthlyPremium} onChange={setF('monthlyPremium')} step="0.01" /></div>
+                <div className="space-y-1.5"><Label>Rate (%)</Label><Input type="number" value={form.rate} onChange={setF('rate')} step="0.01" /></div>
+                <div className="space-y-1.5">
+                  <Label>Annual Premium ({currencySymbol})</Label>
+                  <Input type="number" value={form.december2025Premium} onChange={setF('december2025Premium')} step="0.01" placeholder={`e.g. ${currentYear} premium`} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Premium Year</Label>
+                  <select value={form.premiumYear || currentYear} onChange={(e) => set('premiumYear', e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                    {[currentYear - 1, currentYear, currentYear + 1, currentYear + 2].map((y) => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5"><Label>Vendor</Label><Input value={form.vendor} onChange={setF('vendor')} placeholder="Vendor" /></div>
+                <div className="space-y-1.5"><Label>Interest Noted</Label><Input value={form.interestNoted} onChange={setF('interestNoted')} /></div>
+                <div className="space-y-1.5"><Label>Notes</Label><Input value={form.notes} onChange={setF('notes')} /></div>
+              </div>
+            </>)}
+
+            {!editRecord && (
+              <div className="space-y-2">
+                <Label>Upload Documents</Label>
+                <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-6 cursor-pointer hover:border-nova-green transition-colors bg-gray-50 dark:bg-gray-800/30">
+                  <Upload size={24} className="text-nova-green" />
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Click to upload or drag & drop</p>
+                  <p className="text-xs text-gray-400">PDF, DOC, Excel, JPG, PNG, ZIP</p>
+                  <input type="file" multiple className="hidden" accept=".pdf,.doc,.docx,.xlsx,.xls,.jpg,.jpeg,.png,.zip" onChange={(e) => setFiles((p) => [...p, ...Array.from(e.target.files || [])])} />
+                </label>
+                {files.map((f, i) => (
+                  <div key={i} className="flex items-center justify-between p-2.5 bg-nova-green/10 border border-nova-green/30 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <File size={15} className="text-nova-green" />
+                      <span className="text-sm truncate max-w-[220px]">{f.name}</span>
+                      <span className="text-xs text-gray-400">{(f.size / 1024).toFixed(1)}KB</span>
+                    </div>
+                    <button type="button" onClick={() => setFiles((p) => p.filter((_, j) => j !== i))} className="text-red-500 hover:text-red-700 p-1 rounded transition-colors"><X size={15} /></button>
+                  </div>
+                ))}
+              </div>
             )}
-
             {!editRecord && (
               <div className="space-y-2">
                 <Label>Upload Documents</Label>
