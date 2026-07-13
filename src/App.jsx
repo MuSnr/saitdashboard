@@ -19,6 +19,7 @@ import Settings from '@/pages/Settings'
 import Locations from '@/pages/Locations'
 import NotFound from '@/pages/NotFound'
 import Reconciliation from '@/pages/Reconciliation'
+import Incidents from '@/pages/Incidents'
 
 export default function App() {
   const { loading } = useAuth()
@@ -56,7 +57,7 @@ export default function App() {
       <Route
         path="/users"
         element={
-          <ProtectedRoute roles={['admin']}>
+          <ProtectedRoute roles={['admin', 'super_admin']}>
             <Users />
           </ProtectedRoute>
         }
@@ -64,12 +65,13 @@ export default function App() {
       <Route
         path="/locations"
         element={
-          <ProtectedRoute roles={['admin']}>
+          <ProtectedRoute roles={['admin', 'super_admin']}>
             <Locations />
           </ProtectedRoute>
         }
       />
       <Route path="/reconciliation" element={<ProtectedRoute><Reconciliation /></ProtectedRoute>} />
+      <Route path="/incidents"      element={<ProtectedRoute><Incidents /></ProtectedRoute>} />
 
       {/* ── Fallback ──────────────────────────────────────────── */}
       <Route path="*" element={<NotFound />} />

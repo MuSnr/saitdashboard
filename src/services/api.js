@@ -112,6 +112,7 @@ export const downloadPoliciesTemplate = () =>
 export const fetchUsers   = () =>
   api.get('/users').then((r) => r.data?.users || []).catch(() => [])
 export const createUser   = (data)     => api.post('/users', data).then((r) => r.data)
+export const inviteUser   = (data)     => api.post('/users/invite', data, { timeout: 60000 }).then((r) => r.data)
 export const updateUser   = (id, data) => api.put(`/users/${id}`, data).then((r) => r.data)
 export const deleteUser   = (id)       => api.delete(`/users/${id}`).then((r) => r.data)
 export const approveUser  = (id, action) => api.put(`/users/${id}/approve`, { action }).then((r) => r.data)
@@ -131,7 +132,23 @@ export const createSubCampus  = (data)     => api.post('/sub-campuses', data).th
 export const updateSubCampus  = (id, data) => api.put(`/sub-campuses/${id}`, data).then((r) => r.data)
 export const deleteSubCampus  = (id)       => api.delete(`/sub-campuses/${id}`).then((r) => r.data)
 
-// ── Reconciliation ────────────────────────────────────────────────────────────
+// ── Incidents ─────────────────────────────────────────────────────────────────
+export const fetchIncidents     = (params) =>
+  api.get('/incidents', { params }).then((r) => r.data?.incidents || []).catch(() => [])
+export const fetchIncidentById  = (id) =>
+  api.get(`/incidents/${id}`).then((r) => r.data?.incident)
+export const createIncident     = (data) =>
+  api.post('/incidents', data, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000 }).then((r) => r.data)
+export const updateIncident     = (id, data) =>
+  api.put(`/incidents/${id}`, data).then((r) => r.data)
+export const deleteIncident     = (id) =>
+  api.delete(`/incidents/${id}`).then((r) => r.data)
+export const convertIncidentToClaim = (id) =>
+  api.post(`/incidents/${id}/convert`).then((r) => r.data)
+export const markNotificationsRead  = () =>
+  api.put('/users/notifications/read').then((r) => r.data)
+
+// ── Reconciliation ─────────────────────────────────────────────────────────────
 export const fetchReconciliation  = (params) =>
   api.get('/reconciliation', { params }).then((r) => r.data)
 export const linkRecords          = (assetId, insuranceRecordId) =>

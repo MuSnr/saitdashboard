@@ -1,20 +1,22 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   BarChart3, Plus, FileText, Users, Settings, Search,
   TrendingUp, Moon, Sun, LogOut, Shield, Bell, ChevronLeft,
-  MapPin, GitMerge,
+  MapPin, GitMerge, AlertCircle,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
+import { markNotificationsRead } from '@/services/api'
 
 const navItems = [
   { label: 'Dashboard',          icon: BarChart3,  href: '/' },
-  { label: 'Data Entry',         icon: Plus,        href: '/data-entry' },
+  { label: 'Asset Register',     icon: Plus,        href: '/data-entry' },
   { label: 'Asset Inventory',    icon: Search,      href: '/inventory' },
   { label: 'Insurance Register', icon: Shield,      href: '/insurance-register' },
   { label: 'Reconciliation',     icon: GitMerge,    href: '/reconciliation' },
   { label: 'Claims Pipeline',    icon: TrendingUp,  href: '/claims' },
+  { label: 'Incidents',          icon: AlertCircle, href: '/incidents' },
   { label: 'Reports',            icon: BarChart3,   href: '/reports' },
   { label: 'Policy Documents',   icon: FileText,    href: '/policies' },
 ]
@@ -32,10 +34,22 @@ const bottomItems = [
 export function Layout({ children }) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [unread, setUnread] = useState(0)
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const { theme, toggleTheme } = useTheme()
+
+  // Initialise unread count from user object
+  useEffect(() => {
+    if (user?.unreadNotifications > 0) setUnread(user.unreadNotifications)
+  }, [user])
+
+  const handleBellClick = async () => {
+    setUnread(0)
+    try { await markNotificationsRead() } catch (_) {}
+    navigate('/incidents')
+  }
 
   const isActive = (href) =>
     href === '/' ? location.pathname === '/' : location.pathname.startsWith(href)
@@ -112,7 +126,7 @@ export function Layout({ children }) {
           {navItems.map((item) => <SidebarLink key={item.href} {...item} />)}
 
           {/* Admin-only section */}
-          {user?.role === 'admin' && (
+          {(user?.role === 'admin' || user?.role === 'super_admin') && (
             <>
               {!collapsed && (
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mt-4 mb-2">Admin</p>
@@ -201,9 +215,15 @@ export function Layout({ children }) {
             <button className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400">
               <Search size={18} />
             </button>
-            <button className="relative p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400">
+            <button className="relative p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400" onClick={handleBellClick}>
               <Bell size={18} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-nova-orange rounded-full" />
+              {unread > 0 ? (
+                <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 rounded-full text-white text-[9px] flex items-center justify-center font-bold">
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              ) : (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-nova-orange rounded-full" />
+              )}
             </button>
 
             {/* Avatar block */}

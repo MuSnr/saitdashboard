@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { Plus, Trash2, Upload, File, X, Shield, Edit2, Loader2, RefreshCw, Link2, Unlink, Download, FileSpreadsheet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Separator } from '@/components/ui/separator'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
@@ -15,6 +17,7 @@ import {
   deleteInsuranceRecord, bulkImportInsurance, downloadInsuranceTemplate, getApiError,
 } from '@/services/api'
 import { useCampuses } from '@/context/CampusContext'
+import { useAuth } from '@/context/AuthContext'
 import { Link } from 'react-router-dom'
 
 const insuranceClasses = [
@@ -22,7 +25,7 @@ const insuranceClasses = [
   'Theft Section', 'Business Interruption', 'Public Liability', 'Umbrella Liability',
   'Employers Liability', 'Sasria', 'Broker Fees', 'TWK Assist / Bystand',
 ]
-const statuses = ['Active', 'Request Removal', 'Request Addition', 'Request Update', 'Removed', 'Insured']
+const statuses = ['Active', 'Request Removal', 'Request Addition', 'Request Update', 'Removed', 'Insured', 'Pending Review']
 const categories = ['Asset Based', 'Risk Based', 'Fees']
 
 const statusColour = {
@@ -32,6 +35,7 @@ const statusColour = {
   'Request Addition': 'bg-blue-100 text-blue-700',
   'Request Update':   'bg-amber-100 text-amber-700',
   Removed:            'bg-gray-100 text-gray-500',
+  'Pending Review':   'bg-amber-100 text-amber-700',
 }
 
 const blank = {
@@ -41,10 +45,21 @@ const blank = {
   december2025Premium: '', premiumYear: String(new Date().getFullYear()),
   interestNoted: '', vendor: '', notes: '',
   category: 'Asset Based', policyReference: '',
+  // Kenya admin fields
+  physical_location: '', procuring_department: '', year_of_purchase: '',
+  years_of_service: '', age_bracket: '', asset_class: '',
+  insurance_priority: '', asset_usage_status: '', quantity_insured: '',
+  quantity_retired: '', retired_asset_value: '', insurable_value: '',
+  retire_write_off_date: '', ownership: '',
+  document_link: '', pr_ref: '',
+  is_insured: false, uninsured_flag: false,
+  status_detail: '', comments: '',
 }
 
 export default function InsuranceRegister() {
   const { campuses, loading: campusLoading } = useCampuses()
+  const { isAdmin, isKenya, currencySymbol } = useAuth()
+  const [searchParams] = useSearchParams()
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -52,6 +67,7 @@ export default function InsuranceRegister() {
   const [form, setForm] = useState(blank)
   const [files, setFiles] = useState([])
   const [submitting, setSubmitting] = useState(false)
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || 'all')
 
   // ── Bulk upload state ──────────────────────────────────────────────────────
   const [bulkFile,     setBulkFile]     = useState(null)
@@ -76,13 +92,8 @@ export default function InsuranceRegister() {
 
   useEffect(() => { load() }, [load])
 
-  // Build campus list: DB campuses + any that appear in existing records (for legacy data)
-  const campusOptions = [
-    ...new Set([
-      ...campuses.map((c) => c.name),
-      ...records.map((r) => r.subsidiary).filter(Boolean),
-    ]),
-  ].sort()
+  // Campus list scoped to user's region — comes pre-filtered from the backend
+  const campusOptions = campuses.map((c) => c.name).sort()
 
   const openCreate = () => { setEditRecord(null); setForm(blank); setFiles([]); setDialogOpen(true) }
   const openEdit = (r) => {
@@ -99,6 +110,27 @@ export default function InsuranceRegister() {
       interestNoted: r.interestNoted || '',
       vendor: r.vendor || '', notes: r.notes || '', category: r.category || 'Asset Based',
       policyReference: r.policyReference || '',
+      // Kenya admin fields
+      physical_location:    r.physical_location    || '',
+      procuring_department: r.procuring_department || '',
+      year_of_purchase:     r.year_of_purchase     ? String(r.year_of_purchase) : '',
+      years_of_service:     r.years_of_service     ? String(r.years_of_service) : '',
+      age_bracket:          r.age_bracket          || '',
+      asset_class:          r.asset_class          || '',
+      insurance_priority:   r.insurance_priority   || '',
+      asset_usage_status:   r.asset_usage_status   || '',
+      quantity_insured:     r.quantity_insured      ? String(r.quantity_insured) : '',
+      quantity_retired:     r.quantity_retired      ? String(r.quantity_retired) : '',
+      retired_asset_value:  r.retired_asset_value   ? String(r.retired_asset_value) : '',
+      insurable_value:      r.insurable_value        ? String(r.insurable_value) : '',
+      retire_write_off_date: r.retire_write_off_date ? new Date(r.retire_write_off_date).toISOString().slice(0,10) : '',
+      ownership:            r.ownership            || '',
+      document_link:        r.document_link        || '',
+      pr_ref:               r.pr_ref               || '',
+      is_insured:           r.is_insured           ?? false,
+      uninsured_flag:       r.uninsured_flag       ?? false,
+      status_detail:        r.status_detail        || '',
+      comments:             r.comments             || '',
     })
     setFiles([])
     setDialogOpen(true)
@@ -121,6 +153,13 @@ export default function InsuranceRegister() {
       annualPremium: Number(form.december2025Premium) || 0,
       premiumYear: Number(form.premiumYear) || currentYear,
       december2025Premium: Number(form.december2025Premium) || 0,
+      // Kenya numeric fields
+      year_of_purchase:    form.year_of_purchase    ? Number(form.year_of_purchase) : null,
+      years_of_service:    form.years_of_service    ? Number(form.years_of_service) : null,
+      quantity_insured:    form.quantity_insured     ? Number(form.quantity_insured) : 0,
+      quantity_retired:    form.quantity_retired     ? Number(form.quantity_retired) : 0,
+      retired_asset_value: form.retired_asset_value  ? Number(form.retired_asset_value) : 0,
+      insurable_value:     form.insurable_value       ? Number(form.insurable_value) : 0,
     }
     try {
       if (editRecord) {
@@ -189,6 +228,8 @@ export default function InsuranceRegister() {
 
   const totalSumInsured = records.reduce((s, r) => s + (r.sumInsured || 0), 0)
   const totalMonthly    = records.reduce((s, r) => s + (r.monthlyPremium || 0), 0)
+  const filteredRecords = statusFilter === 'all' ? records : records.filter((r) => r.status === statusFilter)
+  const fmtMoney = (n) => `${currencySymbol} ${Number(n || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
   return (
     <Layout>
@@ -201,17 +242,17 @@ export default function InsuranceRegister() {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={load} disabled={loading}><RefreshCw size={14} /></Button>
-            <Button onClick={openCreate}><Plus size={16} /> Add Record</Button>
+            {isAdmin && <Button onClick={openCreate}><Plus size={16} /> Add Record</Button>}
           </div>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-5">
           {[
-            { label: 'Total Records',    value: records.length,                                               color: 'text-nova-navy dark:text-white' },
-            { label: 'Linked to Assets', value: records.filter((r) => r.linkedAssetId).length,                color: 'text-green-600' },
-            { label: 'Not Linked (Ghost)', value: records.filter((r) => !r.linkedAssetId).length,             color: 'text-red-600' },
-            { label: 'Total Sum Insured', value: `R ${totalSumInsured.toLocaleString()}`,                     color: 'text-nova-teal' },
+            { label: 'Total Records',      value: records.length,                                   color: 'text-nova-navy dark:text-white' },
+            { label: 'Linked to Assets',   value: records.filter((r) => r.linkedAssetId).length,    color: 'text-green-600' },
+            { label: isKenya ? 'All Matched (1:1)' : 'Not Linked (Ghost)', value: isKenya ? records.filter((r) => r.linkedAssetId).length : records.filter((r) => !r.linkedAssetId).length, color: isKenya ? 'text-green-600' : 'text-red-600' },
+            { label: 'Total Sum Insured',  value: fmtMoney(totalSumInsured),                        color: 'text-nova-teal' },
           ].map(({ label, value, color }) => (
             <Card key={label}><CardContent className="p-6">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{label}</p>
@@ -240,34 +281,46 @@ export default function InsuranceRegister() {
         <Tabs defaultValue="records">
           <TabsList>
             <TabsTrigger value="records">Records List</TabsTrigger>
-            <TabsTrigger value="bulk">Bulk Import</TabsTrigger>
+            {isAdmin && <TabsTrigger value="bulk">Bulk Import</TabsTrigger>}
           </TabsList>
 
           {/* Records tab */}
           <TabsContent value="records">
         <Card className="overflow-hidden">
           <CardHeader className="py-4 border-b border-gray-200 dark:border-gray-800">
-            <CardTitle className="text-base">
-              {loading ? <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Loading…</span> : `Records (${records.length})`}
-            </CardTitle>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <CardTitle className="text-base">
+                {loading ? <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Loading…</span> : `Records (${filteredRecords.length}${statusFilter !== 'all' ? ` filtered` : ''})`}
+              </CardTitle>
+              {/* Status filter */}
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-44 h-8 text-xs">
+                  <SelectValue placeholder="All Statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  {statuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </CardHeader>
-          {!loading && records.length === 0 ? (
+          {!loading && filteredRecords.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
               <Shield size={40} className="opacity-40" />
-              <p className="font-medium">No records yet — click "Add Record" to start</p>
+              <p className="font-medium">{statusFilter !== 'all' ? `No "${statusFilter}" records` : 'No records yet — click "Add Record" to start'}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                    {['Subsidiary', 'Status', 'Class', 'Description', 'Linked Asset', 'Sum Insured', 'Monthly Premium', 'Annual Premium', ''].map((h) => (
+                    {['Subsidiary', 'Status', 'Class', 'Description', 'Linked Asset', 'Sum Insured', 'Monthly Premium', 'Annual Premium', ...(isAdmin ? [''] : [])].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {records.map((r) => (
+                  {filteredRecords.map((r) => (
                     <tr key={r._id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                       <td className="px-4 py-3 text-gray-700 dark:text-gray-300 text-xs">{r.subsidiary}</td>
                       <td className="px-4 py-3">
@@ -295,22 +348,24 @@ export default function InsuranceRegister() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 font-semibold text-nova-teal text-xs tabular-nums">R {(r.sumInsured || 0).toLocaleString()}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs tabular-nums">R {(r.monthlyPremium || 0).toLocaleString()}</td>
+                      <td className="px-4 py-3 font-semibold text-nova-teal text-xs tabular-nums">{fmtMoney(r.sumInsured || 0)}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs tabular-nums">{fmtMoney(r.monthlyPremium || 0)}</td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs tabular-nums">
                         <span className="text-nova-teal font-medium">
-                          R {((r.annualPremium ?? r.december2025Premium) || 0).toLocaleString()}
+                          {fmtMoney((r.annualPremium ?? r.december2025Premium) || 0)}
                         </span>
                         {r.premiumYear && (
                           <span className="ml-1 text-[10px] text-gray-400">({r.premiumYear})</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-nova-teal hover:bg-nova-teal/10 transition-colors"><Edit2 size={14} /></button>
-                          <button onClick={() => handleDelete(r._id)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={15} /></button>
-                        </div>
-                      </td>
+                      {isAdmin && (
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => openEdit(r)} className="p-1.5 rounded-lg text-nova-teal hover:bg-nova-teal/10 transition-colors"><Edit2 size={14} /></button>
+                            <button onClick={() => handleDelete(r._id)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={15} /></button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -320,7 +375,8 @@ export default function InsuranceRegister() {
         </Card>
           </TabsContent>
 
-          {/* Bulk Import tab */}
+          {/* Bulk Import tab — admin only */}
+          {isAdmin && (
           <TabsContent value="bulk">
             <Card>
               <CardHeader>
@@ -407,6 +463,7 @@ export default function InsuranceRegister() {
               </CardContent>
             </Card>
           </TabsContent>
+          )}
         </Tabs>
       </div>
 
@@ -507,6 +564,141 @@ export default function InsuranceRegister() {
               <div className="space-y-1.5"><Label>Interest Noted</Label><Input value={form.interestNoted} onChange={setF('interestNoted')} /></div>
               <div className="space-y-1.5"><Label>Notes</Label><Input value={form.notes} onChange={setF('notes')} /></div>
             </div>
+
+            {/* ── Kenya Admin Fields ─────────────────────────────────────────── */}
+            {isAdmin && (
+              <>
+                <Separator />
+                <p className="text-sm font-semibold text-nova-navy dark:text-white">Kenya Register Fields</p>
+
+                {/* Mandatory document link */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Invoice / Document Link {isKenya && <span className="text-red-500">*</span>}</Label>
+                    <Input value={form.document_link} onChange={setF('document_link')} placeholder="https://drive.google.com/…" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>PR Reference</Label>
+                    <Input value={form.pr_ref} onChange={setF('pr_ref')} placeholder="PR-2025-001" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Physical Location</Label>
+                    <Input value={form.physical_location} onChange={setF('physical_location')} placeholder="Building / Room" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Procuring Department</Label>
+                    <Input value={form.procuring_department} onChange={setF('procuring_department')} placeholder="Finance, IT…" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Asset Class</Label>
+                    <Input value={form.asset_class} onChange={setF('asset_class')} placeholder="Furniture, IT Equipment…" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Year of Purchase</Label>
+                    <Input type="number" value={form.year_of_purchase} onChange={setF('year_of_purchase')} placeholder="2022" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Years of Service</Label>
+                    <Input type="number" value={form.years_of_service} onChange={setF('years_of_service')} placeholder="3" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Age Bracket</Label>
+                    <Select value={form.age_bracket || '__none__'} onValueChange={(v) => set('age_bracket', v === '__none__' ? '' : v)}>
+                      <SelectTrigger><SelectValue placeholder="Select bracket" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— None —</SelectItem>
+                        {['<2.5 Yrs','2.5 - 5.0 Yrs','5.0 - 7.5 Yrs','7.5 - 10 Yrs','10> Yrs'].map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Insurance Priority</Label>
+                    <Select value={form.insurance_priority || '__none__'} onValueChange={(v) => set('insurance_priority', v === '__none__' ? '' : v)}>
+                      <SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— None —</SelectItem>
+                        {['High','Medium','Low','Nil','Expensed','Leased'].map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Asset Usage Status</Label>
+                    <Select value={form.asset_usage_status || '__none__'} onValueChange={(v) => set('asset_usage_status', v === '__none__' ? '' : v)}>
+                      <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— None —</SelectItem>
+                        {['In Use','Retired or Lost'].map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Ownership</Label>
+                    <Select value={form.ownership || '__none__'} onValueChange={(v) => set('ownership', v === '__none__' ? '' : v)}>
+                      <SelectTrigger><SelectValue placeholder="Select ownership" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">— None —</SelectItem>
+                        {['NP Owned','Leased','NCBA Owned','Other'].map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Qty Insured</Label>
+                    <Input type="number" min="0" value={form.quantity_insured} onChange={setF('quantity_insured')} placeholder="0" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Qty Retired</Label>
+                    <Input type="number" min="0" value={form.quantity_retired} onChange={setF('quantity_retired')} placeholder="0" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Retired Value ({currencySymbol})</Label>
+                    <Input type="number" min="0" step="0.01" value={form.retired_asset_value} onChange={setF('retired_asset_value')} placeholder="0.00" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Insurable Value ({currencySymbol})</Label>
+                    <Input type="number" min="0" step="0.01" value={form.insurable_value} onChange={setF('insurable_value')} placeholder="0.00" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Retire / Write-off Date</Label>
+                    <Input type="date" value={form.retire_write_off_date} onChange={setF('retire_write_off_date')} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Status Detail</Label>
+                    <Input value={form.status_detail} onChange={setF('status_detail')} placeholder="Additional status info" />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Comments</Label>
+                  <Textarea value={form.comments} onChange={setF('comments')} rows={2} placeholder="Internal admin comments" />
+                </div>
+
+                <div className="flex items-center gap-6">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={form.is_insured} onChange={(e) => set('is_insured', e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-nova-green" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Is Insured</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={form.uninsured_flag} onChange={(e) => set('uninsured_flag', e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-red-500" />
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Uninsured Flag</span>
+                  </label>
+                </div>
+              </>
+            )}
 
             {!editRecord && (
               <div className="space-y-2">

@@ -47,10 +47,17 @@ export function AuthProvider({ children }) {
   }, [])
 
   // ── Role helpers ───────────────────────────────────────────────────────────
-  const isAdmin = user?.role === 'admin'
+  const isAdmin      = user?.role === 'admin' || user?.role === 'super_admin'
+  const isSuperAdmin = user?.role === 'super_admin'
   const isCampusManager = user?.role === 'campus_manager'
-  const isViewer = user?.role === 'viewer'
-  const hasRole = (...roles) => roles.includes(user?.role)
+  const isViewer     = user?.role === 'viewer'
+  const hasRole      = (...roles) => roles.includes(user?.role)
+
+  // ── Region helpers ─────────────────────────────────────────────────────────
+  const region         = user?.region || 'South Africa'
+  const isKenya        = region === 'Kenya'
+  const isSouthAfrica  = region === 'South Africa'
+  const currencySymbol = isKenya ? 'KES' : 'R'
 
   return (
     <AuthContext.Provider
@@ -61,9 +68,14 @@ export function AuthProvider({ children }) {
         login,
         logout,
         isAdmin,
+        isSuperAdmin,
         isCampusManager,
         isViewer,
         hasRole,
+        region,
+        isKenya,
+        isSouthAfrica,
+        currencySymbol,
       }}
     >
       {children}

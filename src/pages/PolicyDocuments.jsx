@@ -6,6 +6,7 @@ import {
   bulkImportPolicies, downloadPoliciesTemplate, getApiError,
 } from '@/services/api'
 import { useCampuses } from '@/context/CampusContext'
+import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,6 +21,7 @@ const blankForm = { ref: '', version: '', subsidiary: '', policyReference: '', e
 
 export default function PolicyDocuments() {
   const { campuses: campusList } = useCampuses()
+  const { currencySymbol } = useAuth()
   const [policies, setPolicies]   = useState([])
   const [loading, setLoading]     = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -130,8 +132,8 @@ export default function PolicyDocuments() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { label: 'Total Policies',   value: filtered.length, color: 'text-nova-navy dark:text-white' },
-            { label: 'Total Premium',    value: `R ${totalPremium.toLocaleString('en-ZA', { maximumFractionDigits: 2 })}`, color: 'text-nova-green' },
-            { label: 'Average Premium',  value: `R ${avgPremium.toLocaleString('en-ZA', { maximumFractionDigits: 2 })}`,   color: 'text-nova-teal' },
+            { label: 'Total Premium',    value: `${currencySymbol} ${totalPremium.toLocaleString('en-ZA', { maximumFractionDigits: 2 })}`, color: 'text-nova-green' },
+            { label: 'Average Premium',  value: `${currencySymbol} ${avgPremium.toLocaleString('en-ZA', { maximumFractionDigits: 2 })}`,   color: 'text-nova-teal' },
           ].map(({ label, value, color }) => (
             <Card key={label}><CardContent className="p-6">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">{label}</p>
@@ -191,7 +193,7 @@ export default function PolicyDocuments() {
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{p.policyReference || '—'}</td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{formatDate(p.effectiveDate)}</td>
                         <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs">{formatDate(p.anniversary)}</td>
-                        <td className="px-4 py-3 font-semibold text-nova-green">R {(p.premiumValue || 0).toLocaleString('en-ZA', { maximumFractionDigits: 2 })}</td>
+                        <td className="px-4 py-3 font-semibold text-nova-green">{currencySymbol} {(p.premiumValue || 0).toLocaleString('en-ZA', { maximumFractionDigits: 2 })}</td>
                         <td className="px-4 py-3">
                           {p.documentLink
                             ? <a href={p.documentLink} target="_blank" rel="noopener noreferrer" className="p-1.5 text-nova-teal hover:bg-nova-teal/10 rounded inline-flex"><Download size={15} /></a>
@@ -239,7 +241,7 @@ export default function PolicyDocuments() {
                 <div className="text-xs text-gray-500 dark:text-gray-400 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-1">
                   <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Required columns</p>
                   <div className="grid grid-cols-2 gap-x-4">
-                    {[['Ref # *','required'],['Version *','required'],['Campus *','required'],['Premium Value (R) *','required'],['Policy Reference','optional'],['Effective Date','YYYY-MM-DD'],['Anniversary Date','YYYY-MM-DD'],['Document Link','optional URL'],['Notes','optional']].map(([col, hint]) => (
+                    {[['Ref # *','required'],['Version *','required'],['Campus *','required'],[`Premium Value (${currencySymbol}) *`,'required'],['Policy Reference','optional'],['Effective Date','YYYY-MM-DD'],['Anniversary Date','YYYY-MM-DD'],['Document Link','optional URL'],['Notes','optional']].map(([col, hint]) => (
                       <p key={col} className="flex items-center gap-2 py-0.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-nova-green flex-shrink-0" />
                         <span className="font-medium text-gray-700 dark:text-gray-300">{col}</span>
@@ -309,7 +311,7 @@ export default function PolicyDocuments() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5"><Label>Policy Reference</Label><Input value={form.policyReference} onChange={(e) => setForm((p) => ({ ...p, policyReference: e.target.value }))} placeholder="POL-2025-001" /></div>
-              <div className="space-y-1.5"><Label>Premium Value (R) *</Label><Input type="number" value={form.premiumValue} onChange={(e) => setForm((p) => ({ ...p, premiumValue: e.target.value }))} step="0.01" required /></div>
+              <div className="space-y-1.5"><Label>Premium Value ({currencySymbol}) *</Label><Input type="number" value={form.premiumValue} onChange={(e) => setForm((p) => ({ ...p, premiumValue: e.target.value }))} step="0.01" required /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5"><Label>Effective Date</Label><Input type="date" value={form.effectiveDate} onChange={(e) => setForm((p) => ({ ...p, effectiveDate: e.target.value }))} /></div>

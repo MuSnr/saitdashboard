@@ -1,17 +1,21 @@
 import { Layout } from '@/components/Layout'
-import { TrendingUp, AlertTriangle, CheckCircle, BarChart3, Loader2, ArrowUpRight, ArrowDownRight, Minus, RefreshCw } from 'lucide-react'
+import { TrendingUp, AlertTriangle, CheckCircle, BarChart3, Loader2, ArrowUpRight, ArrowDownRight, Minus, RefreshCw, Clock, Link2, Shield } from 'lucide-react'
 import { useEffect, useState, useCallback } from 'react'
 import { fetchDashboardAnalytics } from '@/services/api'
+import { useAuth } from '@/context/AuthContext'
+import { useNavigate } from 'react-router-dom'
 
 const fmt  = (n) => Number(n || 0).toLocaleString('en-ZA')
-const fmtM = (n) => {
-  const v = Number(n || 0)
-  if (v >= 1e9) return `R ${(v / 1e9).toFixed(1)}B`
-  if (v >= 1e6) return `R ${(v / 1e6).toFixed(1)}M`
-  if (v >= 1e3) return `R ${(v / 1e3).toFixed(0)}K`
-  return `R ${v.toFixed(0)}`
-}
 const safe = (n) => Number(n) || 0
+
+// Currency-aware compact formatter — default to 'R' so it always works
+const makeFmtM = (symbol = 'R') => (n) => {
+  const v = Number(n || 0)
+  if (v >= 1e9) return `${symbol} ${(v / 1e9).toFixed(1)}B`
+  if (v >= 1e6) return `${symbol} ${(v / 1e6).toFixed(1)}M`
+  if (v >= 1e3) return `${symbol} ${(v / 1e3).toFixed(0)}K`
+  return `${symbol} ${v.toFixed(0)}`
+}
 
 const VARIANCE_PAGE_SIZE = 6
 const CAMPUS_PAGE_SIZE   = 5
@@ -37,6 +41,8 @@ function StatCard({ label, value, sub, changeLabel, icon: Icon, accent, trend })
 }
 
 function VarianceCard({ cls }) {
+  const { currencySymbol } = useAuth()
+  const fmtM = makeFmtM(currencySymbol)
   const total = safe(cls.totalValue), insured = safe(cls.insuredValue), variance = safe(cls.variance)
   const pct = total > 0 ? Math.min((insured / total) * 100, 100) : (insured > 0 ? 100 : 0)
   const isCritical = cls.status === 'Critical', isOver = cls.status === 'Over-Insured', isOnTrack = cls.status === 'On Track'
@@ -120,6 +126,8 @@ function VarianceGrid({ classes }) {
 
 function CampusTable({ rows }) {
   const [page, setPage] = useState(0)
+  const { currencySymbol } = useAuth()
+  const fmtM = makeFmtM(currencySymbol)
   const totalPages = Math.max(1, Math.ceil(rows.length / CAMPUS_PAGE_SIZE))
   const visible = rows.slice(page * CAMPUS_PAGE_SIZE, page * CAMPUS_PAGE_SIZE + CAMPUS_PAGE_SIZE)
   return (
@@ -206,6 +214,12 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
   const [showAll, setShowAll] = useState(false)
+  const { isAdmin, isKenya: rawIsKenya, currencySymbol: rawCurrency } = useAuth()
+  const navigate = useNavigate()
+  // Use safe fallbacks so component never crashes if user/auth not fully loaded
+  const isKenya        = rawIsKenya  ?? false
+  const currencySymbol = rawCurrency ?? 'R'
+  const fmtM = makeFmtM(currencySymbol)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -246,27 +260,48 @@ export default function Dashboard() {
     currentSumInsured:      safe(data?.currentSumInsured),
     underInsuredAmount:     safe(data?.underInsuredAmount),
     coverageRatio:          safe(data?.coverageRatio),
-    replacementValueChange: safe(data?.replacementValueChange),
-    sumInsuredChange:       safe(data?.sumInsuredChange),
+    replacementValueChange: data?.replacementValueChange,
+    sumInsuredChange:       data?.sumInsuredChange,
     totalMonthlyPremium:    safe(data?.totalMonthlyPremium),
-    subsidiaries:     Array.isArray(data?.subsidiaries)     ? data.subsidiaries     : [],
-    insuranceClasses: Array.isArray(data?.insuranceClasses) ? data.insuranceClasses : [],
+    pendingReviewCount:     safe(data?.pendingReviewCount),
+    openIncidentsCount:     safe(data?.openIncidentsCount),
+    matchedByDesignCount:   safe(data?.matchedByDesignCount),
+    keUnifiedTotals:        data?.keUnifiedTotals || null,
+    claimsByStatus:         Array.isArray(data?.claimsByStatus) ? data.claimsByStatus : [],
+    subsidiaries:           Array.isArray(data?.subsidiaries)   ? data.subsidiaries   : [],
+    insuranceClasses:       Array.isArray(data?.insuranceClasses) ? data.insuranceClasses : [],
   }
 
   const classesWithData    = d.insuranceClasses.filter((c) => c.hasData)
   const classesWithoutData = d.insuranceClasses.filter((c) => !c.hasData)
   const visibleClasses     = showAll ? d.insuranceClasses : classesWithData
 
-  const stats = [
-    { label: 'Global Replacement Value', value: `R ${fmt(d.globalReplacementValue)}`,
+  // Kenya: Unified Register stats replace SA variance stats
+  const keStats = isKenya ? [
+    { label: 'Total Assets Registered', value: fmt(d.keUnifiedTotals?.assetCount ?? 0),
+      sub: 'All assets in the Unified Register',
+      changeLabel: 'Unified Register', trend: 'neutral', icon: BarChart3, accent: 'bg-nova-navy' },
+    { label: 'Insured Items', value: fmt(d.keUnifiedTotals?.insuredCount ?? 0),
+      sub: '1:1 matched by design — zero variance',
+      changeLabel: '100% covered', trend: 'up', icon: CheckCircle, accent: 'bg-nova-green' },
+    { label: 'Total Insured Value', value: `${currencySymbol} ${fmt(d.currentSumInsured)}`,
+      sub: `Asset value = insured value`,
+      changeLabel: 'Zero gap', trend: 'up', icon: Shield, accent: 'bg-nova-teal' },
+    { label: 'Matched This Month', value: fmt(d.matchedByDesignCount),
+      sub: 'New assets auto-synced this month',
+      changeLabel: 'Auto-linked', trend: 'up', icon: Link2, accent: 'bg-emerald-500' },
+  ] : []
+
+  const saStats = !isKenya ? [
+    { label: 'Global Replacement Value', value: `${currencySymbol} ${fmt(d.globalReplacementValue)}`,
       sub: 'Total asset value across all campuses',
-      changeLabel: d.replacementValueChange > 0 ? `+${d.replacementValueChange.toFixed(1)}% escalation` : 'No change',
-      trend: d.replacementValueChange > 0 ? 'up' : 'neutral', icon: TrendingUp, accent: 'bg-nova-navy' },
-    { label: 'Current Sum Insured', value: `R ${fmt(d.currentSumInsured)}`,
-      sub: `Monthly premium: R ${fmt(d.totalMonthlyPremium)}/mo`,
-      changeLabel: d.sumInsuredChange > 0 ? `+${d.sumInsuredChange.toFixed(1)}% vs last year` : 'No change',
-      trend: d.sumInsuredChange > 0 ? 'up' : 'neutral', icon: CheckCircle, accent: 'bg-nova-teal' },
-    { label: 'Under-Insured Amount', value: `R ${fmt(d.underInsuredAmount)}`,
+      changeLabel: d.replacementValueChange != null ? `+${Number(d.replacementValueChange).toFixed(1)}% escalation` : 'No historical data',
+      trend: 'neutral', icon: TrendingUp, accent: 'bg-nova-navy' },
+    { label: 'Current Sum Insured', value: `${currencySymbol} ${fmt(d.currentSumInsured)}`,
+      sub: `Monthly premium: ${currencySymbol} ${fmt(d.totalMonthlyPremium)}/mo`,
+      changeLabel: d.sumInsuredChange != null ? `+${Number(d.sumInsuredChange).toFixed(1)}% vs last year` : 'No historical data',
+      trend: 'neutral', icon: CheckCircle, accent: 'bg-nova-teal' },
+    { label: 'Under-Insured Amount', value: `${currencySymbol} ${fmt(d.underInsuredAmount)}`,
       sub: 'Coverage gap requiring attention',
       changeLabel: d.underInsuredAmount > 0 ? 'High Risk' : 'Fully Covered',
       trend: d.underInsuredAmount > 0 ? 'down' : 'up', icon: AlertTriangle, accent: 'bg-nova-orange' },
@@ -274,7 +309,9 @@ export default function Dashboard() {
       sub: 'Target: 100% coverage',
       changeLabel: d.coverageRatio >= 100 ? 'Fully Covered' : d.coverageRatio >= 80 ? 'Near Target' : 'Below Target',
       trend: d.coverageRatio >= 100 ? 'up' : d.coverageRatio >= 80 ? 'neutral' : 'down', icon: BarChart3, accent: 'bg-nova-green' },
-  ]
+  ] : []
+
+  const stats = isKenya ? keStats : saStats
 
   return (
     <Layout>
@@ -304,7 +341,57 @@ export default function Dashboard() {
           {stats.map((s) => <StatCard key={s.label} {...s} />)}
         </div>
 
-        {/* Variance by class + Portfolio overview */}
+        {/* Pending Review badge — SA admin only */}
+        {isAdmin && !isKenya && (
+          <button
+            onClick={() => navigate('/insurance-register?status=Pending+Review')}
+            className="w-full text-left"
+          >
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 flex items-center justify-between hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-amber-500 flex items-center justify-center flex-shrink-0">
+                  <Clock size={20} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium mb-0.5">Pending Review</p>
+                  <p className="text-2xl font-bold text-nova-navy dark:text-white leading-none">{fmt(d.pendingReviewCount)}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {d.pendingReviewCount > 0
+                      ? 'Auto-created insurance records awaiting admin completion'
+                      : 'All auto-created records have been reviewed'}
+                  </p>
+                </div>
+              </div>
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${d.pendingReviewCount > 0 ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'}`}>
+                {d.pendingReviewCount > 0 ? 'Needs attention →' : 'All clear ✓'}
+              </div>
+            </div>
+          </button>
+        )}
+
+        {/* Open Incidents badge — all admins */}
+        {isAdmin && (
+          <button onClick={() => navigate('/incidents')} className="w-full text-left">
+            <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-2xl p-5 flex items-center justify-between hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
+              <div className="flex items-center gap-4">
+                <div className="w-11 h-11 rounded-xl bg-orange-500 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle size={20} className="text-white" />
+                </div>
+                <div>
+                  <p className="text-xs text-orange-600 dark:text-orange-400 font-medium mb-0.5">Open Incidents</p>
+                  <p className="text-2xl font-bold text-nova-navy dark:text-white leading-none">{fmt(d.openIncidentsCount)}</p>
+                  <p className="text-xs text-gray-400 mt-1">Notifications awaiting review or conversion to claim</p>
+                </div>
+              </div>
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold ${d.openIncidentsCount > 0 ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-400' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'}`}>
+                {d.openIncidentsCount > 0 ? 'View incidents →' : 'All clear ✓'}
+              </div>
+            </div>
+          </button>
+        )}
+
+        {/* Variance by class + Portfolio overview — SA only */}
+        {!isKenya && (
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
 
           {/* Variance grid — 2/3 width, 6 per page */}
@@ -387,6 +474,7 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+        )} {/* end !isKenya variance section */}
 
         {/* Campus coverage table */}
         <CampusTable rows={d.subsidiaries} />

@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Layout } from '@/components/Layout'
-import { Plus, Upload, X, Trash2, FileSpreadsheet, Loader2, Edit2, RefreshCw, AlertTriangle, Download } from 'lucide-react'
+import { Plus, Upload, X, Trash2, FileSpreadsheet, Loader2, Edit2, RefreshCw, AlertTriangle, Download, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
@@ -50,6 +51,17 @@ const blank = {
   insuranceStatus: '__none__',
   year: '2025',
   notes: '',
+  // Kenya campus-manager fields
+  row_ref: '',
+  asset_name: '',
+  physical_location: '',
+  procuring_department: '',
+  year_of_purchase: '',
+  years_of_service: '',
+  age_bracket: '',
+  asset_class: '',
+  document_link: '',
+  pr_ref: '',
 }
 
 // ── Badge colours ─────────────────────────────────────────────────────────────
@@ -68,11 +80,10 @@ const statusBadge = {
   'Not Insured': 'bg-gray-100 text-gray-600',
 }
 
-const fmt = (n) => Number(n || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-
 export default function DataEntry() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, isKenya, currencySymbol } = useAuth()
   const { campuses, getSubCampusesFor, loading: campusLoading } = useCampuses()
+  const fmt = (n) => Number(n || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   const [assets, setAssets] = useState([])
   const [loading, setLoading] = useState(true)
@@ -158,6 +169,17 @@ export default function DataEntry() {
       insuranceStatus: a.insuranceStatus || '__none__',
       year: String(a.year || 2025),
       notes: a.notes || '',
+      // Kenya fields
+      row_ref:              a.row_ref              || '',
+      asset_name:           a.asset_name           || '',
+      physical_location:    a.physical_location    || '',
+      procuring_department: a.procuring_department || '',
+      year_of_purchase:     a.year_of_purchase     ? String(a.year_of_purchase) : '',
+      years_of_service:     a.years_of_service     ? String(a.years_of_service) : '',
+      age_bracket:          a.age_bracket          || '',
+      asset_class:          a.asset_class          || '',
+      document_link:        a.document_link        || '',
+      pr_ref:               a.pr_ref               || '',
     })
     setDialogOpen(true)
   }
@@ -186,6 +208,17 @@ export default function DataEntry() {
       insuranceStatus: form.insuranceStatus === '__none__' ? '' : form.insuranceStatus,
       year: Number(form.year) || 2025,
       notes: form.notes.trim(),
+      // Kenya campus-manager fields
+      row_ref:              form.row_ref.trim(),
+      asset_name:           form.asset_name.trim() || form.description.trim(),
+      physical_location:    form.physical_location.trim(),
+      procuring_department: form.procuring_department.trim(),
+      year_of_purchase:     form.year_of_purchase ? Number(form.year_of_purchase) : null,
+      years_of_service:     form.years_of_service ? Number(form.years_of_service) : null,
+      age_bracket:          form.age_bracket || '',
+      asset_class:          form.asset_class.trim(),
+      document_link:        form.document_link.trim(),
+      pr_ref:               form.pr_ref.trim(),
     }
 
     try {
@@ -266,7 +299,7 @@ export default function DataEntry() {
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-nova-navy dark:text-white mb-1">Asset Register — Data Entry</h1>
+            <h1 className="text-3xl font-bold text-nova-navy dark:text-white mb-1">Asset Register</h1>
             <p className="text-gray-500 dark:text-gray-400">
               Add assets as per the register — Campus, Insurance Class, Description, Serial Number, Qty, Unit Price
             </p>
@@ -307,7 +340,7 @@ export default function DataEntry() {
           </CardContent></Card>
           <Card><CardContent className="p-5">
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Total Sum Insured</p>
-            <p className="text-2xl font-bold text-nova-teal">R {fmt(totalSumInsured)}</p>
+            <p className="text-2xl font-bold text-nova-teal">{currencySymbol} {fmt(totalSumInsured)}</p>
           </CardContent></Card>
         </div>
 
@@ -346,7 +379,10 @@ export default function DataEntry() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                        {['Asset ID', 'Campus', 'Sub-Campus', 'Insurance Class', 'Description', 'Serial #', 'Qty', 'Unit Price', 'Sum Insured', 'Status', 'Yr', ''].map((h) => (
+                        {(isKenya
+                          ? ['Asset ID', 'Campus', 'Asset Name', 'Location', 'Department', 'Asset Class', 'Qty', 'Unit Cost', 'Total Cost', 'Year', 'Invoice', '']
+                          : ['Asset ID', 'Campus', 'Sub-Campus', 'Insurance Class', 'Description', 'Serial #', 'Qty', 'Unit Price', 'Sum Insured', 'Status', 'Yr', '']
+                        ).map((h) => (
                           <th key={h} className="px-3 py-3 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
@@ -359,28 +395,46 @@ export default function DataEntry() {
                         >
                           <td className="px-3 py-2.5 font-mono text-[10px] text-gray-400">{a.assetId}</td>
                           <td className="px-3 py-2.5 text-gray-700 dark:text-gray-300 text-xs whitespace-nowrap">{a.subsidiary}</td>
-                          <td className="px-3 py-2.5 text-xs text-gray-500">{a.subLocation || '—'}</td>
-                          <td className="px-3 py-2.5">
-                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${classBadge[a.insuranceClass] || 'bg-gray-100 text-gray-600'}`}>
-                              {a.insuranceClass}
-                            </span>
-                          </td>
-                          <td className="px-3 py-2.5 text-gray-700 dark:text-gray-300 max-w-[180px] truncate text-xs" title={a.description}>
-                            {a.description}
-                            {a.isDuplicate && <span className="ml-1 text-[10px] text-amber-600 font-bold">[DUP]</span>}
-                          </td>
-                          <td className="px-3 py-2.5 font-mono text-[10px] text-gray-500 max-w-[110px] truncate">
-                            {a.serialNumber || '—'}
-                          </td>
-                          <td className="px-3 py-2.5 text-gray-700 dark:text-gray-300 tabular-nums text-xs">{a.quantity}</td>
-                          <td className="px-3 py-2.5 text-gray-600 dark:text-gray-400 tabular-nums text-xs">R {fmt(a.unitPrice)}</td>
-                          <td className="px-3 py-2.5 font-semibold text-nova-teal tabular-nums text-xs">R {fmt(a.sumInsured)}</td>
-                          <td className="px-3 py-2.5">
-                            {a.insuranceStatus
-                              ? <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusBadge[a.insuranceStatus] || 'bg-gray-100 text-gray-600'}`}>{a.insuranceStatus}</span>
-                              : <span className="text-gray-300 text-xs">—</span>}
-                          </td>
-                          <td className="px-3 py-2.5 text-xs text-gray-400">{a.year}</td>
+                          {isKenya ? (
+                            <>
+                              <td className="px-3 py-2.5 text-gray-700 dark:text-gray-300 max-w-[150px] truncate text-xs" title={a.asset_name || a.description}>{a.asset_name || a.description}</td>
+                              <td className="px-3 py-2.5 text-xs text-gray-500 max-w-[120px] truncate">{a.physical_location || '—'}</td>
+                              <td className="px-3 py-2.5 text-xs text-gray-500 max-w-[100px] truncate">{a.procuring_department || '—'}</td>
+                              <td className="px-3 py-2.5 text-xs text-gray-500">{a.asset_class || '—'}</td>
+                              <td className="px-3 py-2.5 tabular-nums text-xs">{a.quantity}</td>
+                              <td className="px-3 py-2.5 tabular-nums text-xs text-gray-600">{currencySymbol} {fmt(a.unitPrice)}</td>
+                              <td className="px-3 py-2.5 font-semibold text-nova-teal tabular-nums text-xs">{currencySymbol} {fmt(a.sumInsured)}</td>
+                              <td className="px-3 py-2.5 text-xs text-gray-400">{a.year_of_purchase || a.year}</td>
+                              <td className="px-3 py-2.5">
+                                {a.document_link
+                                  ? <a href={a.document_link} target="_blank" rel="noopener noreferrer" className="p-1 rounded text-nova-teal hover:bg-nova-teal/10" title="Invoice"><ExternalLink size={13} /></a>
+                                  : <span className="text-amber-500 text-[10px] font-semibold">Missing</span>}
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className="px-3 py-2.5 text-xs text-gray-500">{a.subLocation || '—'}</td>
+                              <td className="px-3 py-2.5">
+                                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${classBadge[a.insuranceClass] || 'bg-gray-100 text-gray-600'}`}>
+                                  {a.insuranceClass}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2.5 text-gray-700 dark:text-gray-300 max-w-[180px] truncate text-xs" title={a.description}>
+                                {a.description}
+                                {a.isDuplicate && <span className="ml-1 text-[10px] text-amber-600 font-bold">[DUP]</span>}
+                              </td>
+                              <td className="px-3 py-2.5 font-mono text-[10px] text-gray-500 max-w-[110px] truncate">{a.serialNumber || '—'}</td>
+                              <td className="px-3 py-2.5 tabular-nums text-xs">{a.quantity}</td>
+                              <td className="px-3 py-2.5 tabular-nums text-xs text-gray-600">{currencySymbol} {fmt(a.unitPrice)}</td>
+                              <td className="px-3 py-2.5 font-semibold text-nova-teal tabular-nums text-xs">{currencySymbol} {fmt(a.sumInsured)}</td>
+                              <td className="px-3 py-2.5">
+                                {a.insuranceStatus
+                                  ? <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${statusBadge[a.insuranceStatus] || 'bg-gray-100 text-gray-600'}`}>{a.insuranceStatus}</span>
+                                  : <span className="text-gray-300 text-xs">—</span>}
+                              </td>
+                              <td className="px-3 py-2.5 text-xs text-gray-400">{a.year}</td>
+                            </>
+                          )}
                           <td className="px-3 py-2.5">
                             <div className="flex items-center gap-1">
                               <button onClick={() => openEdit(a)} className="p-1.5 rounded-lg text-nova-teal hover:bg-nova-teal/10 transition-colors"><Edit2 size={13} /></button>
@@ -656,7 +710,7 @@ export default function DataEntry() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Unit Price (ZAR) *</Label>
+                <Label>Unit Price ({currencySymbol}) *</Label>
                 <Input
                   type="number"
                   value={form.unitPrice}
@@ -668,14 +722,15 @@ export default function DataEntry() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label>Sum Insured</Label>
+                <Label>Total Cost <span className="text-gray-400 text-[10px]">(auto)</span></Label>
                 <div className="h-10 flex items-center px-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <span className="text-sm font-semibold text-nova-teal tabular-nums">R {fmt(previewSum)}</span>
+                  <span className="text-sm font-semibold text-nova-teal tabular-nums">{currencySymbol} {fmt(previewSum)}</span>
                 </div>
               </div>
             </div>
 
-            {/* ── Insurance Status + Pricing Year ──────────────────────── */}
+            {/* ── Insurance Status + Pricing Year — SA only ────────────── */}
+            {!isKenya && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Insurance Status</Label>
@@ -700,8 +755,10 @@ export default function DataEntry() {
                 </Select>
               </div>
             </div>
+            )}
 
-            {/* ── Duplicate flag ────────────────────────────────────────── */}
+            {/* ── Duplicate flag — SA only ──────────────────────────────── */}
+            {!isKenya && (
             <div className={`p-4 rounded-xl border transition-colors ${form.isDuplicate ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/10' : 'border-gray-200 dark:border-gray-700'}`}>
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -730,8 +787,7 @@ export default function DataEntry() {
                 </div>
               )}
             </div>
-
-            {/* ── Notes ─────────────────────────────────────────────────── */}
+            )}
             <div className="space-y-1.5">
               <Label>Notes</Label>
               <Input
@@ -740,6 +796,79 @@ export default function DataEntry() {
                 placeholder="Any additional context…"
               />
             </div>
+
+            {/* ── Kenya Manager Fields ──────────────────────────────────── */}
+            {isKenya && (
+              <>
+                <Separator />
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-nova-navy dark:text-white">Kenya Register Fields</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">Campus Manager Entry</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Row Reference</Label>
+                    <Input value={form.row_ref} onChange={(e) => set('row_ref', e.target.value)} placeholder="e.g. 001" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Asset Name</Label>
+                    <Input value={form.asset_name} onChange={(e) => set('asset_name', e.target.value)} placeholder="Full asset name" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Physical Location</Label>
+                    <Input value={form.physical_location} onChange={(e) => set('physical_location', e.target.value)} placeholder="Building / Room" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Procuring Department</Label>
+                    <Input value={form.procuring_department} onChange={(e) => set('procuring_department', e.target.value)} placeholder="Finance, IT, Operations…" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Asset Class</Label>
+                    <Input value={form.asset_class} onChange={(e) => set('asset_class', e.target.value)} placeholder="Furniture, IT Equipment…" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Year of Purchase</Label>
+                    <Input type="number" value={form.year_of_purchase} onChange={(e) => set('year_of_purchase', e.target.value)} placeholder="2022" min="2000" max="2030" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Years of Service</Label>
+                    <Input type="number" value={form.years_of_service} onChange={(e) => set('years_of_service', e.target.value)} placeholder="3" min="0" />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label>Age Bracket</Label>
+                  <Select value={form.age_bracket || '__none__'} onValueChange={(v) => set('age_bracket', v === '__none__' ? '' : v)}>
+                    <SelectTrigger><SelectValue placeholder="Select bracket" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {['<2.5 Yrs','2.5 - 5.0 Yrs','5.0 - 7.5 Yrs','7.5 - 10 Yrs','10> Yrs'].map((b) => (
+                        <SelectItem key={b} value={b}>{b}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Invoice / Document Link</Label>
+                    <Input type="url" value={form.document_link} onChange={(e) => set('document_link', e.target.value)} placeholder="https://drive.google.com/…" />
+                    <p className="text-[10px] text-gray-400">Proof of value — required for KE audit</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>PR Reference</Label>
+                    <Input value={form.pr_ref} onChange={(e) => set('pr_ref', e.target.value)} placeholder="PR-2025-001" />
+                  </div>
+                </div>
+              </>
+            )}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>

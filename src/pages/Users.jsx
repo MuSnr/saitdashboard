@@ -8,13 +8,12 @@ import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { fetchUsers, createUser, updateUser, deleteUser, approveUser, getApiError } from '@/services/api'
+import { fetchUsers, createUser, inviteUser, updateUser, deleteUser, approveUser, getApiError } from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
 import { useCampuses } from '@/context/CampusContext'
 
 const roleVariant = { admin: 'default', campus_manager: 'info', viewer: 'secondary' }
-const roleLabel = { admin: 'Admin', campus_manager: 'Campus Manager', viewer: 'Viewer' }
-const statusVariant = { active: 'default', pending: 'warning', inactive: 'secondary', suspended: 'destructive' }
+const roleLabel = { super_admin: 'Super Admin', admin: 'Admin', campus_manager: 'Campus Manager', viewer: 'Viewer' }
 const statusColour = {
   active:    'bg-green-100 text-green-700',
   pending:   'bg-amber-100 text-amber-700',
@@ -22,11 +21,30 @@ const statusColour = {
   suspended: 'bg-red-100 text-red-700',
 }
 
-const emptyForm = { name: '', email: '', password: '', role: 'viewer', region: 'South Africa', campus: '', status: 'active' }
+const emptyForm = { name: '', email: '', role: 'viewer', region: 'South Africa', campus: '', status: 'active' }
 
 export default function Users() {
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, isSuperAdmin, isAdmin } = useAuth()
   const { campuses } = useCampuses()
+
+  // Roles this user is allowed to assign
+  const assignableRoles = isSuperAdmin
+    ? ['viewer', 'campus_manager', 'admin', 'super_admin']
+    : ['viewer', 'campus_manager']  // plain admin can only manage these two
+
+  const roleLabels = {
+    viewer:         'Viewer',
+    campus_manager: 'Campus Manager',
+    admin:          'Admin',
+    super_admin:    'Super Admin',
+  }
+
+  // Whether the current user can edit/delete a given target user
+  const canManage = (target) => {
+    if (isSuperAdmin) return true
+    // admin can only touch campus_manager and viewer
+    return !['admin', 'super_admin'].includes(target.role)
+  }
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -55,7 +73,11 @@ export default function Users() {
     (statusFilter === 'all' || u.status === statusFilter)
   )
 
-  const openCreate = () => { setEditUser(null); setForm(emptyForm); setDialogOpen(true) }
+  const openCreate = () => {
+    setEditUser(null)
+    setForm({ ...emptyForm, region: currentUser?.region || 'South Africa' })
+    setDialogOpen(true)
+  }
   const openEdit = (u) => {
     setEditUser(u)
     setForm({ name: u.name, email: u.email, password: '', role: u.role, region: u.region || '', campus: u.campus || '', status: u.status })
@@ -65,18 +87,17 @@ export default function Users() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.name || !form.email) { toast.error('Name and email are required'); return }
-    if (!editUser && !form.password) { toast.error('Password is required for new users'); return }
 
     setSubmitting(true)
     try {
       if (editUser) {
-        const { password, ...rest } = form
-        const data = await updateUser(editUser._id, rest)
+        const data = await updateUser(editUser._id, form)
         toast.success('User updated')
         setUsers((p) => p.map((u) => u._id === editUser._id ? { ...u, ...data.user } : u))
       } else {
-        const data = await createUser(form)
-        toast.success('User created')
+        // Invite flow — user will receive email to set their own password
+        const data = await inviteUser(form)
+        toast.success(`Invitation sent to ${form.email}`)
         setUsers((p) => [data.user, ...p])
       }
       setDialogOpen(false)
@@ -130,7 +151,7 @@ export default function Users() {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={loadUsers}><RefreshCw size={14} /></Button>
-            <Button onClick={openCreate}><Plus size={16} /> Add User</Button>
+            <Button onClick={openCreate}><Plus size={16} /> Invite User</Button>
           </div>
         </div>
 
@@ -151,6 +172,7 @@ export default function Users() {
               <SelectTrigger className="w-40"><SelectValue placeholder="Role" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
+                {isSuperAdmin && <SelectItem value="super_admin">Super Admin</SelectItem>}
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="campus_manager">Campus Manager</SelectItem>
                 <SelectItem value="viewer">Viewer</SelectItem>
@@ -201,6 +223,7 @@ export default function Users() {
                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{u.email}</td>
                     <td className="px-4 py-3">
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                        u.role === 'super_admin' ? 'bg-purple-100 text-purple-700' :
                         u.role === 'admin' ? 'bg-nova-navy text-white' :
                         u.role === 'campus_manager' ? 'bg-sky-100 text-sky-700' :
                         'bg-gray-100 text-gray-600'
@@ -242,10 +265,12 @@ export default function Users() {
                           onClick={() => openEdit(u)}
                           className="p-1.5 rounded-lg text-nova-teal hover:bg-nova-teal/10 transition-colors"
                           title="Edit"
+                          disabled={!canManage(u)}
+                          style={{ opacity: canManage(u) ? 1 : 0.3, cursor: canManage(u) ? 'pointer' : 'not-allowed' }}
                         >
                           <Edit2 size={14} />
                         </button>
-                        {u._id !== currentUser?._id && (
+                        {u._id !== currentUser?._id && canManage(u) && (
                           <button
                             onClick={() => handleDelete(u._id, u.name)}
                             className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -268,11 +293,11 @@ export default function Users() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editUser ? 'Edit User' : 'Add New User'}</DialogTitle>
+            <DialogTitle>{editUser ? 'Edit User' : 'Invite User'}</DialogTitle>
             <DialogDescription>
               {editUser
                 ? 'Update user details, role and access settings.'
-                : 'Create a new user account. The user will be active immediately.'}
+                : 'Enter the user\'s details. They will receive an email with a link to set their own password.'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
@@ -295,30 +320,28 @@ export default function Users() {
                 required
               />
             </div>
-            {!editUser && (
-              <div className="space-y-1.5">
-                <Label>Password *</Label>
-                <Input
-                  type="password"
-                  value={form.password}
-                  onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
-                  placeholder="Min. 8 characters"
-                  required
-                  minLength={8}
-                />
-              </div>
-            )}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Role</Label>
-                <Select value={form.role} onValueChange={(v) => setForm((p) => ({ ...p, role: v }))}>
+                <Select
+                  value={form.role}
+                  onValueChange={(v) => setForm((p) => ({ ...p, role: v }))}
+                  disabled={editUser && !canManage(editUser)}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="viewer">Viewer</SelectItem>
-                    <SelectItem value="campus_manager">Campus Manager</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    {assignableRoles.map((r) => (
+                      <SelectItem key={r} value={r}>{roleLabels[r]}</SelectItem>
+                    ))}
+                    {/* If editing someone whose role is outside assignable list, show it but locked */}
+                    {editUser && !assignableRoles.includes(editUser.role) && (
+                      <SelectItem value={editUser.role} disabled>{roleLabels[editUser.role] || editUser.role}</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
+                {editUser && !canManage(editUser) && (
+                  <p className="text-[10px] text-amber-600 mt-1">Only a Super Admin can change this user's role.</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Status</Label>
@@ -336,13 +359,20 @@ export default function Users() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Region</Label>
-                <Select value={form.region} onValueChange={(v) => setForm((p) => ({ ...p, region: v }))}>
+                <Select
+                  value={form.region}
+                  onValueChange={(v) => setForm((p) => ({ ...p, region: v }))}
+                  disabled={!isSuperAdmin}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="South Africa">South Africa</SelectItem>
                     <SelectItem value="Kenya">Kenya</SelectItem>
                   </SelectContent>
                 </Select>
+                {!isSuperAdmin && (
+                  <p className="text-[10px] text-gray-400 mt-1">Region is fixed to your own region.</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>
@@ -368,7 +398,7 @@ export default function Users() {
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : editUser ? 'Save Changes' : 'Add User'}
+                {submitting ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : editUser ? 'Save Changes' : 'Send Invite'}
               </Button>
             </DialogFooter>
           </form>

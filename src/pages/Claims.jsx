@@ -1,7 +1,8 @@
 import { Layout } from '@/components/Layout'
 import {
-  Plus, Trash2, ExternalLink, FileText, Upload, File, X, Download, FileSpreadsheet,
-  Loader2, Filter, Edit2, RefreshCw, Link as LinkIcon,
+  Plus, Trash2, ExternalLink, FileText, Upload, File, X, Download,
+  FileSpreadsheet, Loader2, Filter, Edit2, RefreshCw, Link as LinkIcon,
+  AlertCircle,
 } from 'lucide-react'
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
@@ -19,36 +20,46 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import { useCampuses } from '@/context/CampusContext'
+import { useAuth } from '@/context/AuthContext'
 
-const STATUSES = ['Pending', 'Paid Out', 'Rejected', 'Withdrawn', 'Lodged']
+const STATUSES = ['Internal WIP', 'Lodged', 'Paid Out', 'Rejected', 'Withdrawn', 'Below Minimum Excess']
 
 const statusColour = {
-  'Paid Out': 'bg-green-100 text-green-700',
-  Pending:    'bg-yellow-100 text-yellow-700',
-  Rejected:   'bg-red-100 text-red-700',
-  Withdrawn:  'bg-gray-100 text-gray-600',
-  Lodged:     'bg-blue-100 text-blue-700',
+  'Internal WIP':         'bg-yellow-100 text-yellow-700',
+  'Paid Out':             'bg-green-100 text-green-700',
+  'Rejected':             'bg-red-100 text-red-700',
+  'Withdrawn':            'bg-gray-100 text-gray-600',
+  'Lodged':               'bg-blue-100 text-blue-700',
+  'Below Minimum Excess': 'bg-purple-100 text-purple-700',
 }
 
 const blankForm = {
-  subsidiary: '', claimStatus: 'Pending', dateOfIncident: '', dateOfSubmission: '',
-  dateOfSettlement: '', claimValue: '', description: '', notes: '',
+  subsidiary: '', claimStatus: 'Internal WIP',
+  dateOfIncident: '', dateOfSubmission: '', dateOfSettlement: '',
+  claimValue: '', description: '', notes: '',
   incidentFormLink: '', claimFormLink: '', dischargeVoucherLink: '', folderLink: '',
+  // Extended fields
+  insurer_notified_date: '', internal_report_date: '',
+  excess_paid: '', claim_amount_paid: '',
+  np_user: '', item_pending: '', other_replacement: '',
 }
 
-const fmt     = (n) => Number(n || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-ZA') : '—'
+const toDateInput = (d) => d ? new Date(d).toISOString().slice(0, 10) : ''
 
 export default function Claims() {
   const { campuses } = useCampuses()
-  const [claims, setClaims]       = useState([])
-  const [loading, setLoading]     = useState(true)
+  const { currencySymbol } = useAuth()
+  const fmt = (n) => `${currencySymbol} ${Number(n || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+  const [claims, setClaims]         = useState([])
+  const [loading, setLoading]       = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editClaim, setEditClaim] = useState(null)
-  const [files, setFiles]         = useState([])
-  const [form, setForm]           = useState(blankForm)
+  const [editClaim, setEditClaim]   = useState(null)
+  const [files, setFiles]           = useState([])
+  const [form, setForm]             = useState(blankForm)
   const [submitting, setSubmitting] = useState(false)
-  const [filters, setFilters]     = useState({ status: 'all', subsidiary: 'all', year: 'all' })
+  const [filters, setFilters]       = useState({ status: 'all', subsidiary: 'all', year: 'all' })
 
   // bulk
   const [bulkFile,      setBulkFile]      = useState(null)
@@ -75,28 +86,40 @@ export default function Claims() {
   }), [claims, filters])
 
   const stats = useMemo(() => ({
-    total:      filtered.length,
-    paidOut:    filtered.filter((c) => c.claimStatus === 'Paid Out').length,
-    pending:    filtered.filter((c) => c.claimStatus === 'Pending').length,
-    lodged:     filtered.filter((c) => c.claimStatus === 'Lodged').length,
-    rejected:   filtered.filter((c) => c.claimStatus === 'Rejected').length,
-    withdrawn:  filtered.filter((c) => c.claimStatus === 'Withdrawn').length,
-    totalValue: filtered.reduce((s, c) => s + (c.claimValue || 0), 0),
-    paidOutValue: filtered.filter((c) => c.claimStatus === 'Paid Out').reduce((s, c) => s + (c.claimValue || 0), 0),
+    total:              filtered.length,
+    paidOut:            filtered.filter((c) => c.claimStatus === 'Paid Out').length,
+    internalWip:        filtered.filter((c) => c.claimStatus === 'Internal WIP').length,
+    lodged:             filtered.filter((c) => c.claimStatus === 'Lodged').length,
+    rejected:           filtered.filter((c) => c.claimStatus === 'Rejected').length,
+    withdrawn:          filtered.filter((c) => c.claimStatus === 'Withdrawn').length,
+    belowExcess:        filtered.filter((c) => c.claimStatus === 'Below Minimum Excess').length,
+    totalValue:         filtered.reduce((s, c) => s + (c.claimValue || 0), 0),
+    paidOutValue:       filtered.filter((c) => c.claimStatus === 'Paid Out').reduce((s, c) => s + (c.claim_amount_paid || c.claimValue || 0), 0),
   }), [filtered])
 
   const openCreate = () => { setEditClaim(null); setForm(blankForm); setFiles([]); setDialogOpen(true) }
-  const openEdit   = (claim) => {
+  const openEdit = (claim) => {
     setEditClaim(claim)
     setForm({
-      subsidiary: claim.subsidiary || '', claimStatus: claim.claimStatus || 'Pending',
-      dateOfIncident:   claim.dateOfIncident   ? new Date(claim.dateOfIncident).toISOString().slice(0,10)   : '',
-      dateOfSubmission: claim.dateOfSubmission ? new Date(claim.dateOfSubmission).toISOString().slice(0,10) : '',
-      dateOfSettlement: claim.dateOfSettlement ? new Date(claim.dateOfSettlement).toISOString().slice(0,10) : '',
-      claimValue: String(claim.claimValue || ''),
-      description: claim.description || '', notes: claim.notes || '',
-      incidentFormLink: claim.incidentFormLink || '', claimFormLink: claim.claimFormLink || '',
-      dischargeVoucherLink: claim.dischargeVoucherLink || '', folderLink: claim.folderLink || '',
+      subsidiary:       claim.subsidiary      || '',
+      claimStatus:      claim.claimStatus     || 'Internal WIP',
+      dateOfIncident:   toDateInput(claim.dateOfIncident),
+      dateOfSubmission: toDateInput(claim.dateOfSubmission),
+      dateOfSettlement: toDateInput(claim.dateOfSettlement),
+      claimValue:       String(claim.claimValue || ''),
+      description:      claim.description     || '',
+      notes:            claim.notes           || '',
+      incidentFormLink:    claim.incidentFormLink    || '',
+      claimFormLink:       claim.claimFormLink       || '',
+      dischargeVoucherLink:claim.dischargeVoucherLink|| '',
+      folderLink:          claim.folderLink          || '',
+      insurer_notified_date: toDateInput(claim.insurer_notified_date),
+      internal_report_date:  toDateInput(claim.internal_report_date),
+      excess_paid:        String(claim.excess_paid       || ''),
+      claim_amount_paid:  String(claim.claim_amount_paid || ''),
+      np_user:            claim.np_user            || '',
+      item_pending:       claim.item_pending       || '',
+      other_replacement:  claim.other_replacement  || '',
     })
     setFiles([]); setDialogOpen(true)
   }
@@ -108,12 +131,25 @@ export default function Claims() {
     }
     setSubmitting(true)
     const payload = {
-      subsidiary: form.subsidiary, claimStatus: form.claimStatus,
-      dateOfIncident: form.dateOfIncident, dateOfSubmission: form.dateOfSubmission,
-      dateOfSettlement: form.dateOfSettlement || null, claimValue: Number(form.claimValue) || 0,
-      description: form.description.trim(), notes: form.notes.trim(),
-      incidentFormLink: form.incidentFormLink.trim(), claimFormLink: form.claimFormLink.trim(),
-      dischargeVoucherLink: form.dischargeVoucherLink.trim(), folderLink: form.folderLink.trim(),
+      subsidiary:       form.subsidiary,
+      claimStatus:      form.claimStatus,
+      dateOfIncident:   form.dateOfIncident,
+      dateOfSubmission: form.dateOfSubmission,
+      dateOfSettlement: form.dateOfSettlement || null,
+      claimValue:       Number(form.claimValue) || 0,
+      description:      form.description.trim(),
+      notes:            form.notes.trim(),
+      incidentFormLink:    form.incidentFormLink.trim(),
+      claimFormLink:       form.claimFormLink.trim(),
+      dischargeVoucherLink:form.dischargeVoucherLink.trim(),
+      folderLink:          form.folderLink.trim(),
+      insurer_notified_date: form.insurer_notified_date || null,
+      internal_report_date:  form.internal_report_date  || null,
+      excess_paid:           Number(form.excess_paid)       || 0,
+      claim_amount_paid:     Number(form.claim_amount_paid) || 0,
+      np_user:           form.np_user.trim(),
+      item_pending:      form.item_pending.trim(),
+      other_replacement: form.other_replacement.trim(),
     }
     try {
       if (editClaim) {
@@ -185,13 +221,14 @@ export default function Claims() {
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
           {[
-            { label: 'Total',               value: stats.total,               sub: `R ${fmt(stats.totalValue)}`,   colour: 'text-nova-navy dark:text-white' },
-            { label: 'Paid Out',            value: stats.paidOut,             sub: `R ${fmt(stats.paidOutValue)}`, colour: 'text-green-600' },
-            { label: 'Pending',             value: stats.pending,             sub: 'In progress',                  colour: 'text-yellow-600' },
-            { label: 'Lodged',              value: stats.lodged,              sub: 'Awaiting docs',                colour: 'text-blue-600' },
-            { label: 'Rejected/Withdrawn',  value: stats.rejected + stats.withdrawn, sub: 'Closed',              colour: 'text-gray-500' },
+            { label: 'Total',              value: stats.total,        sub: fmt(stats.totalValue),    colour: 'text-nova-navy dark:text-white' },
+            { label: 'Paid Out',           value: stats.paidOut,      sub: fmt(stats.paidOutValue),  colour: 'text-green-600' },
+            { label: 'Internal WIP',       value: stats.internalWip,  sub: 'In progress',            colour: 'text-yellow-600' },
+            { label: 'Lodged',             value: stats.lodged,       sub: 'With insurer',           colour: 'text-blue-600' },
+            { label: 'Rejected/Withdrawn', value: stats.rejected + stats.withdrawn, sub: 'Closed',  colour: 'text-gray-500' },
+            { label: 'Below Min Excess',   value: stats.belowExcess,  sub: 'Not pursued',            colour: 'text-purple-600' },
           ].map(({ label, value, sub, colour }) => (
             <Card key={label}><CardContent className="p-4">
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
@@ -218,7 +255,7 @@ export default function Claims() {
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Select value={filters.status} onValueChange={(v) => setFilters((p) => ({ ...p, status: v }))}>
-                  <SelectTrigger className="w-full sm:w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="Status" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
                     {STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -228,7 +265,7 @@ export default function Claims() {
                   <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Campus" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Campuses</SelectItem>
-                    {[...new Set([...campuses.map((c) => c.name), ...claims.map((c) => c.subsidiary).filter(Boolean)])].sort().map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    {campuses.map((c) => <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <Select value={filters.year} onValueChange={(v) => setFilters((p) => ({ ...p, year: v }))}>
@@ -250,14 +287,14 @@ export default function Claims() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                      {['Ref','Status','Campus','Incident','Submitted','Settled','Value','Description','Notes','Docs',''].map((h) => (
+                      {['Ref','Status','Campus','Incident Date','Submitted','Settled','Claim Value','Amt Paid','Excess','Incident Link','Description','Docs',''].map((h) => (
                         <th key={h} className="px-3 py-3 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                     {filtered.length === 0 ? (
-                      <tr><td colSpan={11} className="px-4 py-12 text-center text-gray-400">
+                      <tr><td colSpan={13} className="px-4 py-12 text-center text-gray-400">
                         {claims.length === 0 ? 'No claims yet — submit your first claim' : 'No claims match your filters'}
                       </td></tr>
                     ) : filtered.map((c) => (
@@ -272,9 +309,18 @@ export default function Claims() {
                         <td className="px-3 py-3 text-xs whitespace-nowrap">
                           {c.dateOfSettlement ? <span className="text-green-600 font-medium">{fmtDate(c.dateOfSettlement)}</span> : <span className="text-gray-300">—</span>}
                         </td>
-                        <td className="px-3 py-3 tabular-nums text-xs font-semibold text-nova-navy dark:text-white whitespace-nowrap">{c.claimValue > 0 ? `R ${fmt(c.claimValue)}` : '—'}</td>
+                        <td className="px-3 py-3 tabular-nums text-xs font-semibold text-nova-navy dark:text-white whitespace-nowrap">{c.claimValue > 0 ? fmt(c.claimValue) : '—'}</td>
+                        <td className="px-3 py-3 tabular-nums text-xs text-green-600 whitespace-nowrap">{c.claim_amount_paid > 0 ? fmt(c.claim_amount_paid) : '—'}</td>
+                        <td className="px-3 py-3 tabular-nums text-xs text-gray-500 whitespace-nowrap">{c.excess_paid > 0 ? fmt(c.excess_paid) : '—'}</td>
+                        {/* Linked incident badge */}
+                        <td className="px-3 py-3 text-xs whitespace-nowrap">
+                          {c.linked_incident_id ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">
+                              <AlertCircle size={9} /> Linked
+                            </span>
+                          ) : <span className="text-gray-300">—</span>}
+                        </td>
                         <td className="px-3 py-3 text-gray-600 dark:text-gray-400 max-w-[160px] truncate text-xs" title={c.description}>{c.description}</td>
-                        <td className="px-3 py-3 text-gray-400 max-w-[120px] truncate text-xs" title={c.notes}>{c.notes || '—'}</td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-1">
                             {c.incidentFormLink && <a href={c.incidentFormLink} target="_blank" rel="noopener noreferrer" title="Incident Form" className="p-1 rounded text-nova-teal hover:bg-nova-teal/10"><FileText size={13} /></a>}
@@ -326,65 +372,19 @@ export default function Claims() {
                   )}
                   <input type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={(e) => { setBulkFile(e.target.files?.[0] || null); setBulkResult(null) }} />
                 </label>
-
-                {/* Column hint */}
-                <div className="text-xs text-gray-500 dark:text-gray-400 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-1">
-                  <p className="font-semibold text-gray-700 dark:text-gray-300 mb-2">Required columns</p>
-                  <div className="grid grid-cols-2 gap-x-4">
-                    {[['Campus *','required'],['Date of Incident *','YYYY-MM-DD'],['Date of Claim Submission *','YYYY-MM-DD'],['Brief Description *','required'],['Claim Status','default: Pending'],['Claim Value (R)','optional'],['Date of Settlement','optional'],['Notes','optional']].map(([col, hint]) => (
-                      <p key={col} className="flex items-center gap-2 py-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-nova-green flex-shrink-0" />
-                        <span className="font-medium text-gray-700 dark:text-gray-300">{col}</span>
-                        <span className="text-gray-400">— {hint}</span>
-                      </p>
-                    ))}
-                  </div>
-                </div>
-
                 <Button onClick={handleBulkUpload} disabled={!bulkFile || bulkUploading} className="w-full">
                   {bulkUploading ? <><Loader2 size={14} className="animate-spin" /> Importing…</> : <><Upload size={16} /> Upload & Import</>}
                 </Button>
-
-                {/* Results */}
                 {bulkResult && (
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap gap-3">
-                      <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                        <span className="w-2 h-2 rounded-full bg-green-500" />
-                        <span className="text-sm font-semibold text-green-700 dark:text-green-400">{bulkResult.inserted} imported</span>
-                      </div>
-                      {bulkResult.errors > 0 && (
-                        <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                          <span className="w-2 h-2 rounded-full bg-red-500" />
-                          <span className="text-sm font-semibold text-red-700 dark:text-red-400">{bulkResult.errors} errors</span>
-                        </div>
-                      )}
+                  <div className="flex flex-wrap gap-3">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                      <span className="w-2 h-2 rounded-full bg-green-500" />
+                      <span className="text-sm font-semibold text-green-700 dark:text-green-400">{bulkResult.inserted} imported</span>
                     </div>
-                    {bulkResult.details?.inserted?.length > 0 && (
-                      <div className="rounded-lg border border-green-200 dark:border-green-800 overflow-hidden">
-                        <p className="px-3 py-2 text-xs font-semibold bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400">Imported claims</p>
-                        <div className="max-h-40 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
-                          {bulkResult.details.inserted.map((r, i) => (
-                            <div key={i} className="flex items-center gap-3 px-3 py-2 text-xs">
-                              <span className="font-mono text-gray-400">{r.claimId}</span>
-                              <span className="text-gray-700 dark:text-gray-300 truncate">{r.description}</span>
-                              <span className="text-gray-400 ml-auto">row {r.row}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {bulkResult.details?.errors?.length > 0 && (
-                      <div className="rounded-lg border border-red-200 dark:border-red-800 overflow-hidden">
-                        <p className="px-3 py-2 text-xs font-semibold bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400">Rows with errors</p>
-                        <div className="max-h-40 overflow-y-auto divide-y divide-gray-100 dark:divide-gray-800">
-                          {bulkResult.details.errors.map((r, i) => (
-                            <div key={i} className="flex items-center gap-3 px-3 py-2 text-xs">
-                              <span className="text-gray-400 flex-shrink-0">row {r.row}</span>
-                              <span className="text-red-600 dark:text-red-400">{r.reason}</span>
-                            </div>
-                          ))}
-                        </div>
+                    {bulkResult.errors > 0 && (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                        <span className="w-2 h-2 rounded-full bg-red-500" />
+                        <span className="text-sm font-semibold text-red-700 dark:text-red-400">{bulkResult.errors} errors</span>
                       </div>
                     )}
                   </div>
@@ -397,19 +397,20 @@ export default function Claims() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editClaim ? `Edit Claim — ${editClaim.claimId}` : 'Submit New Claim'}</DialogTitle>
-            <DialogDescription>All fields match the Excel Claims sheet columns exactly.</DialogDescription>
+            <DialogDescription>Fill in the claim details. Extended fields for pipeline tracking.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-5 pt-2">
+            {/* Core */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label>Campus *</Label>
                 <Select value={form.subsidiary} onValueChange={(v) => setForm((p) => ({ ...p, subsidiary: v }))}>
                   <SelectTrigger><SelectValue placeholder="Select campus" /></SelectTrigger>
                   <SelectContent>
-                    {[...new Set([...campuses.map((c) => c.name), ...claims.map((c) => c.subsidiary).filter(Boolean)])].sort().map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    {campuses.map((c) => <SelectItem key={c.name} value={c.name}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -421,19 +422,37 @@ export default function Claims() {
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div className="space-y-1.5"><Label>Date of Incident *</Label><Input type="date" value={form.dateOfIncident} onChange={(e) => setForm((p) => ({ ...p, dateOfIncident: e.target.value }))} required /></div>
               <div className="space-y-1.5"><Label>Date of Submission *</Label><Input type="date" value={form.dateOfSubmission} onChange={(e) => setForm((p) => ({ ...p, dateOfSubmission: e.target.value }))} required /></div>
+              <div className="space-y-1.5"><Label>Date of Settlement</Label><Input type="date" value={form.dateOfSettlement} onChange={(e) => setForm((p) => ({ ...p, dateOfSettlement: e.target.value }))} /></div>
+            </div>
+            <div className="space-y-1.5"><Label>Description *</Label><Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={2} required /></div>
+            <div className="space-y-1.5"><Label>Notes</Label><Input value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} /></div>
+
+            <Separator />
+            <p className="text-sm font-semibold text-nova-navy dark:text-white">Financial Details</p>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1.5"><Label>Claim Value ({currencySymbol})</Label><Input type="number" step="0.01" min="0" value={form.claimValue} onChange={(e) => setForm((p) => ({ ...p, claimValue: e.target.value }))} placeholder="0.00" /></div>
+              <div className="space-y-1.5"><Label>Claim Amount Paid ({currencySymbol})</Label><Input type="number" step="0.01" min="0" value={form.claim_amount_paid} onChange={(e) => setForm((p) => ({ ...p, claim_amount_paid: e.target.value }))} placeholder="0.00" /></div>
+              <div className="space-y-1.5"><Label>Excess Paid ({currencySymbol})</Label><Input type="number" step="0.01" min="0" value={form.excess_paid} onChange={(e) => setForm((p) => ({ ...p, excess_paid: e.target.value }))} placeholder="0.00" /></div>
+            </div>
+
+            <Separator />
+            <p className="text-sm font-semibold text-nova-navy dark:text-white">Pipeline Tracking</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5"><Label>Insurer Notified Date</Label><Input type="date" value={form.insurer_notified_date} onChange={(e) => setForm((p) => ({ ...p, insurer_notified_date: e.target.value }))} /></div>
+              <div className="space-y-1.5"><Label>Internal Report Date</Label><Input type="date" value={form.internal_report_date} onChange={(e) => setForm((p) => ({ ...p, internal_report_date: e.target.value }))} /></div>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5"><Label>Date of Settlement <span className="text-gray-400 text-[10px]">(optional)</span></Label><Input type="date" value={form.dateOfSettlement} onChange={(e) => setForm((p) => ({ ...p, dateOfSettlement: e.target.value }))} /></div>
-              <div className="space-y-1.5"><Label>Claim Value (R)</Label><Input type="number" step="0.01" min="0" value={form.claimValue} onChange={(e) => setForm((p) => ({ ...p, claimValue: e.target.value }))} placeholder="0.00" /></div>
+              <div className="space-y-1.5"><Label>NP User Involved</Label><Input value={form.np_user} onChange={(e) => setForm((p) => ({ ...p, np_user: e.target.value }))} placeholder="Name of staff member" /></div>
+              <div className="space-y-1.5"><Label>Item Pending</Label><Input value={form.item_pending} onChange={(e) => setForm((p) => ({ ...p, item_pending: e.target.value }))} placeholder="What is outstanding?" /></div>
             </div>
-            <div className="space-y-1.5"><Label>Description *</Label><Textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))} rows={3} required /></div>
-            <div className="space-y-1.5"><Label>Notes</Label><Input value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} /></div>
+            <div className="space-y-1.5"><Label>Other Replacement Info</Label><Input value={form.other_replacement} onChange={(e) => setForm((p) => ({ ...p, other_replacement: e.target.value }))} placeholder="Replacement details or notes" /></div>
+
             <Separator />
             <p className="text-sm font-semibold text-nova-navy dark:text-white flex items-center gap-2"><LinkIcon size={14} /> Document Links</p>
-            <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
               {[['incidentFormLink','Incident Form Link'],['claimFormLink','Claim Form Link'],['dischargeVoucherLink','Discharge Voucher Link'],['folderLink','Folder Link']].map(([key, label]) => (
                 <div key={key} className="space-y-1.5">
                   <Label>{label}</Label>
@@ -441,25 +460,7 @@ export default function Claims() {
                 </div>
               ))}
             </div>
-            {!editClaim && (
-              <>
-                <Separator />
-                <div className="space-y-2">
-                  <Label>Upload Claim Documents</Label>
-                  <label className="flex flex-col items-center gap-2 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-5 cursor-pointer hover:border-nova-green transition-colors bg-gray-50 dark:bg-gray-800/30">
-                    <Upload size={22} className="text-nova-green" />
-                    <p className="text-sm text-gray-500">Click to upload files</p>
-                    <input type="file" multiple className="hidden" accept=".pdf,.doc,.docx,.xlsx,.jpg,.png,.zip" onChange={(e) => setFiles((p) => [...p, ...Array.from(e.target.files || [])])} />
-                  </label>
-                  {files.map((f, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 bg-nova-green/10 border border-nova-green/30 rounded-lg">
-                      <div className="flex items-center gap-2"><File size={14} className="text-nova-green" /><span className="text-xs truncate max-w-[200px]">{f.name}</span></div>
-                      <button type="button" onClick={() => setFiles((p) => p.filter((_, j) => j !== i))} className="text-red-500 p-0.5 rounded hover:bg-red-50"><X size={14} /></button>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={submitting}>

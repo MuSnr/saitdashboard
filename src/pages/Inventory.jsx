@@ -97,7 +97,7 @@ export default function Inventory() {
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
               <Search size={40} className="opacity-40" />
-              <p className="font-medium">{assets.length === 0 ? 'No assets yet — connect backend or add via Data Entry' : 'No results for your filters'}</p>
+              <p className="font-medium">{assets.length === 0 ? 'No assets yet — add via Asset Register' : 'No results for your filters'}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
