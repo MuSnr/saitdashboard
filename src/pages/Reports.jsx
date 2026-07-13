@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { fetchVarianceReport, fetchClaimsReport, fetchAssetsReport, getApiError } from '@/services/api'
 import { useCampuses } from '@/context/CampusContext'
+import { useAuth } from '@/context/AuthContext'
 
 const fmt  = (n) => Number(n || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const fmtN = (n) => Number(n || 0).toLocaleString('en-ZA')
@@ -94,6 +95,7 @@ const exportCSV = (reportType, rows) => {
 
 export default function Reports() {
   const { campuses } = useCampuses()
+  const { currencySymbol } = useAuth()
 
   // Filters
   const [reportType,    setReportType]    = useState('variance')
@@ -269,8 +271,8 @@ export default function Reports() {
         {varianceSummary && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Total Asset Value',   value: `R ${fmt(varianceSummary.totalAssetValue)}`,   colour: 'text-nova-navy dark:text-white' },
-              { label: 'Total Insured Value', value: `R ${fmt(varianceSummary.totalInsuredValue)}`, colour: 'text-nova-teal' },
+              { label: 'Total Asset Value',   value: `${currencySymbol} ${fmt(varianceSummary.totalAssetValue)}`,   colour: 'text-nova-navy dark:text-white' },
+              { label: 'Total Insured Value', value: `${currencySymbol} ${fmt(varianceSummary.totalInsuredValue)}`, colour: 'text-nova-teal' },
               { label: 'Critical Lines',      value: varianceSummary.criticalCount,                 colour: 'text-red-600' },
               { label: 'Under-Insured Lines', value: varianceSummary.underCount,                    colour: 'text-amber-600' },
             ].map(({ label, value, colour }) => (
@@ -388,7 +390,7 @@ export default function Reports() {
                         <td className="px-4 py-3 font-mono text-xs font-bold text-nova-navy dark:text-white whitespace-nowrap">{r.claimId}</td>
                         <td className="px-4 py-3 text-gray-700 dark:text-gray-300 text-xs whitespace-nowrap">{r.campus}</td>
                         <td className="px-4 py-3 font-semibold text-nova-navy dark:text-white text-xs tabular-nums whitespace-nowrap">
-                          {r.amount > 0 ? `R ${fmt(r.amount)}` : '—'}
+                          {r.amount > 0 ? `${currencySymbol} ${fmt(r.amount)}` : '—'}
                         </td>
                         <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{r.date}</td>
                         <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">{r.dateSubmitted}</td>

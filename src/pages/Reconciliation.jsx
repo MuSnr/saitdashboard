@@ -65,7 +65,7 @@ function Section({ title, icon: Icon, count, accent, children, defaultOpen = tru
 }
 
 export default function Reconciliation() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, currencySymbol } = useAuth()
   const { campuses, getSubCampusesFor } = useCampuses()
 
   const [data,          setData]          = useState(null)
@@ -295,8 +295,8 @@ export default function Reconciliation() {
               { label: 'Matched',                    value: data.summary.matchedCount,                           colour: 'text-green-600',  sub: 'Linked both sides' },
               { label: 'Ghost Items',                value: data.summary.ghostItemsCount,                       colour: 'text-red-600',    sub: 'Insurance — no asset' },
               { label: 'Uninsured Assets',           value: data.summary.uninsuredAssetsCount,                  colour: 'text-amber-600',  sub: 'Asset — no cover' },
-              { label: 'Monthly Premiums at Risk',   value: `R ${fmt(data.summary.totalMonthlyAtRisk)}`,        colour: 'text-red-600',    sub: 'Paid for ghost items' },
-              { label: 'Uninsured Asset Value',      value: `R ${fmt(data.summary.totalUninsuredValue)}`,       colour: 'text-amber-600',  sub: 'No insurance cover' },
+              { label: 'Monthly Premiums at Risk',   value: `${currencySymbol} ${fmt(data.summary.totalMonthlyAtRisk)}`,        colour: 'text-red-600',    sub: 'Paid for ghost items' },
+              { label: 'Uninsured Asset Value',      value: `${currencySymbol} ${fmt(data.summary.totalUninsuredValue)}`,       colour: 'text-amber-600',  sub: 'No insurance cover' },
             ].map(({ label, value, colour, sub }) => (
               <Card key={label}><CardContent className="p-4">
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">{label}</p>
@@ -344,8 +344,8 @@ export default function Reconciliation() {
                           <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs whitespace-nowrap">{g.insuranceClass}</td>
                           <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs max-w-[180px] truncate" title={g.description}>{g.description || '—'}</td>
                           <td className="px-4 py-3 font-mono text-[10px] text-gray-500">{g.serialNumber || '—'}</td>
-                          <td className="px-4 py-3 font-semibold text-nova-teal text-xs tabular-nums">R {fmt(g.sumInsured)}</td>
-                          <td className="px-4 py-3 text-red-600 font-semibold text-xs tabular-nums">R {fmt(g.monthlyPremium)}/mo</td>
+                          <td className="px-4 py-3 font-semibold text-nova-teal text-xs tabular-nums">{currencySymbol} {fmt(g.sumInsured)}</td>
+                          <td className="px-4 py-3 text-red-600 font-semibold text-xs tabular-nums">{currencySymbol} {fmt(g.monthlyPremium)}/mo</td>
                           <td className="px-4 py-3">
                             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusColour[g.status] || 'bg-gray-100 text-gray-600'}`}>
                               {g.status}
@@ -397,7 +397,7 @@ export default function Reconciliation() {
                           <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs whitespace-nowrap">{a.insuranceClass}</td>
                           <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs max-w-[180px] truncate" title={a.description}>{a.description}</td>
                           <td className="px-4 py-3 font-mono text-[10px] text-gray-500">{a.serialNumber || '—'}</td>
-                          <td className="px-4 py-3 font-semibold text-nova-navy dark:text-white text-xs tabular-nums">R {fmt(a.assetValue)}</td>
+                          <td className="px-4 py-3 font-semibold text-nova-navy dark:text-white text-xs tabular-nums">{currencySymbol} {fmt(a.assetValue)}</td>
                           <td className="px-4 py-3">
                             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusColour[a.insuranceStatus] || 'bg-gray-100 text-gray-600'}`}>
                               {a.insuranceStatus || 'Not Insured'}
@@ -449,10 +449,10 @@ export default function Reconciliation() {
                           <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs whitespace-nowrap">{m.insuranceClass}</td>
                           <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs max-w-[160px] truncate" title={m.assetDescription}>{m.assetDescription}</td>
                           <td className="px-4 py-3 font-mono text-[10px] text-gray-500">{m.serialNumber || '—'}</td>
-                          <td className="px-4 py-3 text-gray-700 dark:text-gray-300 text-xs tabular-nums">R {fmt(m.assetValue)}</td>
-                          <td className="px-4 py-3 text-nova-teal font-semibold text-xs tabular-nums">R {fmt(m.sumInsured)}</td>
+                          <td className="px-4 py-3 text-gray-700 dark:text-gray-300 text-xs tabular-nums">{currencySymbol} {fmt(m.assetValue)}</td>
+                          <td className="px-4 py-3 text-nova-teal font-semibold text-xs tabular-nums">{currencySymbol} {fmt(m.sumInsured)}</td>
                           <td className={`px-4 py-3 font-semibold text-xs tabular-nums ${m.valueDifference < 0 ? 'text-red-500' : m.valueDifference > 0 ? 'text-nova-green' : 'text-gray-400'}`}>
-                            {m.valueDifference === 0 ? '—' : `${m.valueDifference > 0 ? '+' : ''}R ${fmt(Math.abs(m.valueDifference))}`}
+                            {m.valueDifference === 0 ? '—' : `${m.valueDifference > 0 ? '+' : ''}${currencySymbol} ${fmt(Math.abs(m.valueDifference))}`}
                           </td>
                           <td className="px-4 py-3">
                             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusColour[m.assetStatus] || 'bg-gray-100 text-gray-600'}`}>
@@ -546,8 +546,8 @@ export default function Reconciliation() {
                           {record.policyReference ? ` · Ref: ${record.policyReference}`    : ''}
                         </p>
                         <p className="text-xs text-nova-teal font-semibold mt-1">
-                          Sum Insured: R {fmt(record.sumInsured)}
-                          {record.monthlyPremium ? ` · Premium: R ${fmt(record.monthlyPremium)}/mo` : ''}
+                          Sum Insured: {currencySymbol} {fmt(record.sumInsured)}
+                          {record.monthlyPremium ? ` · Premium: ${currencySymbol} ${fmt(record.monthlyPremium)}/mo` : ''}
                         </p>
                       </div>
                       <Button

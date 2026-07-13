@@ -3,6 +3,7 @@ import { Search, Loader2 } from 'lucide-react'
 import { useState, useMemo, useEffect } from 'react'
 import { fetchAssets } from '@/services/api'
 import { useCampuses } from '@/context/CampusContext'
+import { useAuth } from '@/context/AuthContext'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -18,6 +19,7 @@ const INSURANCE_CLASSES = [
 
 export default function Inventory() {
   const { campuses } = useCampuses()
+  const { currencySymbol } = useAuth()
   const [assets, setAssets] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -127,11 +129,11 @@ export default function Inventory() {
                           : <span className="text-gray-300 text-xs">—</span>}
                       </td>
                       <td className="px-4 py-3 font-semibold text-nova-navy dark:text-white tabular-nums">
-                        R {Number(a.unitPrice || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                        {currencySymbol} {Number(a.unitPrice || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400 tabular-nums">{a.quantity}</td>
                       <td className="px-4 py-3 font-semibold text-nova-teal tabular-nums text-xs">
-                        R {Number(a.sumInsured || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                        {currencySymbol} {Number(a.sumInsured || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                       </td>
                       <td className="px-4 py-3 text-gray-400 text-xs">{a.year || '—'}</td>
                     </tr>
