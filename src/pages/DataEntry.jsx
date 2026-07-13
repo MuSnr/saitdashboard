@@ -4,7 +4,6 @@ import { Plus, Upload, X, Trash2, FileSpreadsheet, Loader2, Edit2, RefreshCw, Al
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
@@ -595,8 +594,8 @@ export default function DataEntry() {
 
           <form onSubmit={handleSubmit} className="space-y-5 pt-2">
 
-            {/* ── Campus + Sub-campus (cascading, dynamic) ──────────────── */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* ── Campus (always shown) ─────────────────────────────────── */}
+            <div className={`grid gap-4 ${isKenya ? 'grid-cols-1' : 'grid-cols-2'}`}>
               <div className="space-y-1.5">
                 <Label>Campus *</Label>
                 {campusLoading ? (
@@ -608,267 +607,217 @@ export default function DataEntry() {
                   <div className="h-10 flex items-center px-3 border border-amber-200 bg-amber-50 dark:bg-amber-900/10 rounded-lg">
                     <span className="text-xs text-amber-600">
                       No campuses yet —{' '}
-                      {isAdmin && (
-                        <Link to="/locations" onClick={() => setDialogOpen(false)} className="underline font-semibold">
-                          add them here
-                        </Link>
-                      )}
+                      {isAdmin && <Link to="/locations" onClick={() => setDialogOpen(false)} className="underline font-semibold">add them here</Link>}
                     </span>
                   </div>
                 ) : (
-                  <Select
-                    value={form.campusId}
-                    onValueChange={handleCampusChange}
-                  >
+                  <Select value={form.campusId} onValueChange={handleCampusChange}>
                     <SelectTrigger><SelectValue placeholder="Select campus" /></SelectTrigger>
                     <SelectContent>
-                      {campuses.map((c) => (
-                        <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>
-                      ))}
+                      {campuses.map((c) => <SelectItem key={c._id} value={c._id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 )}
               </div>
 
-              <div className="space-y-1.5">
-                <Label>
-                  Sub-Campus
-                  {form.campusId && availableSubCampuses.length === 0 && (
-                    <span className="text-[10px] text-gray-400 ml-1">
-                      — none added yet
-                      {isAdmin && (
-                        <Link to="/locations" onClick={() => setDialogOpen(false)} className="text-nova-teal underline ml-1">add sub-campus</Link>
-                      )}
-                    </span>
-                  )}
-                </Label>
-                <Select
-                  value={form.subCampusId || '__none__'}
-                  onValueChange={handleSubCampusChange}
-                  disabled={!form.campusId || availableSubCampuses.length === 0}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={form.campusId ? 'Select sub-campus' : 'Select campus first'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— None —</SelectItem>
-                    {availableSubCampuses.map((s) => (
-                      <SelectItem key={s._id} value={s._id}>{s.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* ── Insurance Class ───────────────────────────────────────── */}
-            <div className="space-y-1.5">
-              <Label>Insurance Class *</Label>
-              <Select value={form.insuranceClass} onValueChange={(v) => set('insuranceClass', v)}>
-                <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
-                <SelectContent>
-                  {INSURANCE_CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* ── Item Description ──────────────────────────────────────── */}
-            <div className="space-y-1.5">
-              <Label>Item Description *</Label>
-              <Input
-                value={form.description}
-                onChange={(e) => set('description', e.target.value)}
-                placeholder="e.g. Acer Chromebook C733, Chair - 375mmh, Building at 60 Williams Road…"
-                required
-              />
-            </div>
-
-            {/* ── Serial Number ─────────────────────────────────────────── */}
-            <div className="space-y-1.5">
-              <Label>Serial Number</Label>
-              <Input
-                value={form.serialNumber}
-                onChange={(e) => set('serialNumber', e.target.value)}
-                placeholder="e.g. NXH8VEA00195218CC07600"
-                className="font-mono"
-              />
-              <p className="text-[10px] text-gray-400">
-                Leave blank for furniture and building items where a serial number does not apply.
-              </p>
-            </div>
-
-            {/* ── Quantity + Unit Price + Sum Insured preview ───────────── */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <Label>Quantity *</Label>
-                <Input
-                  type="number"
-                  value={form.quantity}
-                  onChange={(e) => set('quantity', e.target.value)}
-                  min="0"
-                  step="1"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Unit Price ({currencySymbol}) *</Label>
-                <Input
-                  type="number"
-                  value={form.unitPrice}
-                  onChange={(e) => set('unitPrice', e.target.value)}
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Total Cost <span className="text-gray-400 text-[10px]">(auto)</span></Label>
-                <div className="h-10 flex items-center px-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <span className="text-sm font-semibold text-nova-teal tabular-nums">{currencySymbol} {fmt(previewSum)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ── Insurance Status + Pricing Year — SA only ────────────── */}
-            {!isKenya && (
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Insurance Status</Label>
-                <Select
-                  value={form.insuranceStatus}
-                  onValueChange={(v) => set('insuranceStatus', v)}
-                >
-                  <SelectTrigger><SelectValue placeholder="Set status…" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">— Not set —</SelectItem>
-                    {INSURANCE_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Pricing Year</Label>
-                <Select value={form.year} onValueChange={(v) => set('year', v)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {PRICING_YEARS.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            )}
-
-            {/* ── Duplicate flag — SA only ──────────────────────────────── */}
-            {!isKenya && (
-            <div className={`p-4 rounded-xl border transition-colors ${form.isDuplicate ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/10' : 'border-gray-200 dark:border-gray-700'}`}>
-              <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={form.isDuplicate}
-                  onChange={(e) => set('isDuplicate', e.target.checked)}
-                  className="w-4 h-4 accent-amber-500"
-                />
-                <div className="flex items-center gap-2">
-                  {form.isDuplicate && <AlertTriangle size={15} className="text-amber-500" />}
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Mark as DUPLICATE
-                  </span>
-                  <span className="text-xs text-gray-400">(excluded from totals & sum insured)</span>
-                </div>
-              </label>
-              {form.isDuplicate && (
-                <div className="mt-3 space-y-1.5">
-                  <Label className="text-xs">Duplicate Note</Label>
-                  <Input
-                    value={form.duplicateNote}
-                    onChange={(e) => set('duplicateNote', e.target.value)}
-                    placeholder="e.g. Serial already listed under Ruimsig JS"
-                    className="text-sm"
-                  />
+              {/* Sub-campus — SA only */}
+              {!isKenya && (
+                <div className="space-y-1.5">
+                  <Label>
+                    Sub-Campus
+                    {form.campusId && availableSubCampuses.length === 0 && (
+                      <span className="text-[10px] text-gray-400 ml-1">
+                        — none added yet
+                        {isAdmin && <Link to="/locations" onClick={() => setDialogOpen(false)} className="text-nova-teal underline ml-1">add sub-campus</Link>}
+                      </span>
+                    )}
+                  </Label>
+                  <Select value={form.subCampusId || '__none__'} onValueChange={handleSubCampusChange} disabled={!form.campusId || availableSubCampuses.length === 0}>
+                    <SelectTrigger><SelectValue placeholder={form.campusId ? 'Select sub-campus' : 'Select campus first'} /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {availableSubCampuses.map((s) => <SelectItem key={s._id} value={s._id}>{s.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
             </div>
-            )}
-            <div className="space-y-1.5">
-              <Label>Notes</Label>
-              <Input
-                value={form.notes}
-                onChange={(e) => set('notes', e.target.value)}
-                placeholder="Any additional context…"
-              />
-            </div>
 
-            {/* ── Kenya Manager Fields ──────────────────────────────────── */}
-            {isKenya && (
-              <>
-                <Separator />
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-nova-navy dark:text-white">Kenya Register Fields</span>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">Campus Manager Entry</span>
+            {/* ══════════════════════════════════════════════════════
+                KENYA FORM — Unified Register / Dual-Entry fields
+            ══════════════════════════════════════════════════════ */}
+            {isKenya && (<>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Row Reference</Label>
+                  <Input value={form.row_ref} onChange={(e) => set('row_ref', e.target.value)} placeholder="e.g. 001" />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Row Reference</Label>
-                    <Input value={form.row_ref} onChange={(e) => set('row_ref', e.target.value)} placeholder="e.g. 001" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Asset Name</Label>
-                    <Input value={form.asset_name} onChange={(e) => set('asset_name', e.target.value)} placeholder="Full asset name" />
-                  </div>
+                <div className="space-y-1.5">
+                  <Label>Asset Name *</Label>
+                  <Input value={form.asset_name} onChange={(e) => set('asset_name', e.target.value)} placeholder="Full asset name" required />
                 </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Physical Location</Label>
-                    <Input value={form.physical_location} onChange={(e) => set('physical_location', e.target.value)} placeholder="Building / Room" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Procuring Department</Label>
-                    <Input value={form.procuring_department} onChange={(e) => set('procuring_department', e.target.value)} placeholder="Finance, IT, Operations…" />
-                  </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Physical Location</Label>
+                  <Input value={form.physical_location} onChange={(e) => set('physical_location', e.target.value)} placeholder="Building / Room" />
                 </div>
+                <div className="space-y-1.5">
+                  <Label>Procuring Department</Label>
+                  <Input value={form.procuring_department} onChange={(e) => set('procuring_department', e.target.value)} placeholder="Finance, IT, Operations…" />
+                </div>
+              </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Asset Class</Label>
-                    <Input value={form.asset_class} onChange={(e) => set('asset_class', e.target.value)} placeholder="Furniture, IT Equipment…" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Year of Purchase</Label>
-                    <Input type="number" value={form.year_of_purchase} onChange={(e) => set('year_of_purchase', e.target.value)} placeholder="2022" min="2000" max="2030" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>Years of Service</Label>
-                    <Input type="number" value={form.years_of_service} onChange={(e) => set('years_of_service', e.target.value)} placeholder="3" min="0" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Asset Class</Label>
+                  <Input value={form.asset_class} onChange={(e) => set('asset_class', e.target.value)} placeholder="Furniture, IT Equipment…" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Serial Number</Label>
+                  <Input value={form.serialNumber} onChange={(e) => set('serialNumber', e.target.value)} placeholder="Serial # (if applicable)" className="font-mono" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Quantity *</Label>
+                  <Input type="number" value={form.quantity} onChange={(e) => set('quantity', e.target.value)} min="0" step="1" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Unit Cost ({currencySymbol}) *</Label>
+                  <Input type="number" value={form.unitPrice} onChange={(e) => set('unitPrice', e.target.value)} placeholder="0.00" step="0.01" min="0" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Total Cost <span className="text-gray-400 text-[10px]">(auto)</span></Label>
+                  <div className="h-10 flex items-center px-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <span className="text-sm font-semibold text-nova-teal tabular-nums">{currencySymbol} {fmt(previewSum)}</span>
                   </div>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Year of Purchase</Label>
+                  <Input type="number" value={form.year_of_purchase} onChange={(e) => set('year_of_purchase', e.target.value)} placeholder="2022" min="2000" max="2030" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Years of Service</Label>
+                  <Input type="number" value={form.years_of_service} onChange={(e) => set('years_of_service', e.target.value)} placeholder="3" min="0" />
+                </div>
                 <div className="space-y-1.5">
                   <Label>Age Bracket</Label>
                   <Select value={form.age_bracket || '__none__'} onValueChange={(v) => set('age_bracket', v === '__none__' ? '' : v)}>
                     <SelectTrigger><SelectValue placeholder="Select bracket" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">— None —</SelectItem>
-                      {['<2.5 Yrs','2.5 - 5.0 Yrs','5.0 - 7.5 Yrs','7.5 - 10 Yrs','10> Yrs'].map((b) => (
-                        <SelectItem key={b} value={b}>{b}</SelectItem>
-                      ))}
+                      {['<2.5 Yrs','2.5 - 5.0 Yrs','5.0 - 7.5 Yrs','7.5 - 10 Yrs','10> Yrs'].map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>Invoice / Document Link</Label>
-                    <Input type="url" value={form.document_link} onChange={(e) => set('document_link', e.target.value)} placeholder="https://drive.google.com/…" />
-                    <p className="text-[10px] text-gray-400">Proof of value — required for KE audit</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>PR Reference</Label>
-                    <Input value={form.pr_ref} onChange={(e) => set('pr_ref', e.target.value)} placeholder="PR-2025-001" />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Invoice / Document Link</Label>
+                  <Input type="url" value={form.document_link} onChange={(e) => set('document_link', e.target.value)} placeholder="https://drive.google.com/…" />
+                  <p className="text-[10px] text-gray-400">Proof of value — required for KE audit</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>PR Reference</Label>
+                  <Input value={form.pr_ref} onChange={(e) => set('pr_ref', e.target.value)} placeholder="PR-2025-001" />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Notes</Label>
+                <Input value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Any additional context…" />
+              </div>
+            </>)}
+
+            {/* ══════════════════════════════════════════════════════
+                SOUTH AFRICA FORM — Insurance register fields
+            ══════════════════════════════════════════════════════ */}
+            {!isKenya && (<>
+              <div className="space-y-1.5">
+                <Label>Insurance Class *</Label>
+                <Select value={form.insuranceClass} onValueChange={(v) => set('insuranceClass', v)}>
+                  <SelectTrigger><SelectValue placeholder="Select class" /></SelectTrigger>
+                  <SelectContent>{INSURANCE_CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Item Description *</Label>
+                <Input value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="e.g. Acer Chromebook C733, Chair - 375mmh…" required />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Serial Number</Label>
+                <Input value={form.serialNumber} onChange={(e) => set('serialNumber', e.target.value)} placeholder="e.g. NXH8VEA00195218CC07600" className="font-mono" />
+                <p className="text-[10px] text-gray-400">Leave blank for furniture and building items.</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Quantity *</Label>
+                  <Input type="number" value={form.quantity} onChange={(e) => set('quantity', e.target.value)} min="0" step="1" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Unit Price ({currencySymbol}) *</Label>
+                  <Input type="number" value={form.unitPrice} onChange={(e) => set('unitPrice', e.target.value)} placeholder="0.00" step="0.01" min="0" required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Sum Insured <span className="text-gray-400 text-[10px]">(auto)</span></Label>
+                  <div className="h-10 flex items-center px-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <span className="text-sm font-semibold text-nova-teal tabular-nums">{currencySymbol} {fmt(previewSum)}</span>
                   </div>
                 </div>
-              </>
-            )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Insurance Status</Label>
+                  <Select value={form.insuranceStatus} onValueChange={(v) => set('insuranceStatus', v)}>
+                    <SelectTrigger><SelectValue placeholder="Set status…" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Not set —</SelectItem>
+                      {INSURANCE_STATUSES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Pricing Year</Label>
+                  <Select value={form.year} onValueChange={(v) => set('year', v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{PRICING_YEARS.map((y) => <SelectItem key={y} value={y}>{y}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className={`p-4 rounded-xl border transition-colors ${form.isDuplicate ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/10' : 'border-gray-200 dark:border-gray-700'}`}>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input type="checkbox" checked={form.isDuplicate} onChange={(e) => set('isDuplicate', e.target.checked)} className="w-4 h-4 accent-amber-500" />
+                  <div className="flex items-center gap-2">
+                    {form.isDuplicate && <AlertTriangle size={15} className="text-amber-500" />}
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Mark as DUPLICATE</span>
+                    <span className="text-xs text-gray-400">(excluded from totals & sum insured)</span>
+                  </div>
+                </label>
+                {form.isDuplicate && (
+                  <div className="mt-3 space-y-1.5">
+                    <Label className="text-xs">Duplicate Note</Label>
+                    <Input value={form.duplicateNote} onChange={(e) => set('duplicateNote', e.target.value)} placeholder="e.g. Serial already listed under Ruimsig JS" className="text-sm" />
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Notes</Label>
+                <Input value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Any additional context…" />
+              </div>
+            </>)}
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
