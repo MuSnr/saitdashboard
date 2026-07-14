@@ -100,7 +100,15 @@ export default function DataEntry() {
   // Computed sum insured preview
   const previewSum = (Number(form.quantity) || 0) * (Number(form.unitPrice) || 0)
 
-  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }))
+  const set = (k, v) => setForm((p) => {
+    const updated = { ...p, [k]: v }
+    // Auto-calculate years of service when year of purchase changes
+    if (k === 'year_of_purchase' && v) {
+      const yos = new Date().getFullYear() - Number(v)
+      if (yos >= 0) updated.years_of_service = String(yos)
+    }
+    return updated
+  })
 
   // When campus changes, reset sub-campus and store campus name too
   const handleCampusChange = (campusId) => {
@@ -703,8 +711,12 @@ export default function DataEntry() {
                   <Input type="number" value={form.year_of_purchase} onChange={(e) => set('year_of_purchase', e.target.value)} placeholder="2022" min="2000" max="2030" />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Years of Service</Label>
-                  <Input type="number" value={form.years_of_service} onChange={(e) => set('years_of_service', e.target.value)} placeholder="3" min="0" />
+                  <Label>Years of Service <span className="text-[10px] text-gray-400">(auto)</span></Label>
+                  <div className="h-10 flex items-center px-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <span className="text-sm font-semibold text-nova-teal tabular-nums">
+                      {form.years_of_service ? `${form.years_of_service} yr${Number(form.years_of_service) !== 1 ? 's' : ''}` : '—'}
+                    </span>
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Age Bracket</Label>

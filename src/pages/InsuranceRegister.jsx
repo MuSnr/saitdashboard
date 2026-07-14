@@ -73,7 +73,15 @@ export default function InsuranceRegister() {
   const [bulkUploading,setBulkUploading]= useState(false)
   const [bulkResult,   setBulkResult]   = useState(null)
 
-  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }))
+  const set = (k, v) => setForm((p) => {
+    const updated = { ...p, [k]: v }
+    // Auto-calculate years of service when year of purchase changes
+    if (k === 'year_of_purchase' && v) {
+      const yos = new Date().getFullYear() - Number(v)
+      if (yos >= 0) updated.years_of_service = String(yos)
+    }
+    return updated
+  })
   const setF = (k) => (e) => set(k, e.target.value)
   const currentYear = new Date().getFullYear()
 
@@ -137,9 +145,16 @@ export default function InsuranceRegister() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.subsidiary || !form.classOfInsurance || !form.sumInsured) {
-      toast.error('Subsidiary, class, and sum insured are required')
-      return
+    // Kenya: only subsidiary + sumInsured required (no classOfInsurance in KE form)
+    // SA: subsidiary + classOfInsurance + sumInsured all required
+    if (!form.subsidiary) {
+      toast.error('Campus is required'); return
+    }
+    if (!isKenya && !form.classOfInsurance) {
+      toast.error('Class of Insurance is required'); return
+    }
+    if (!form.sumInsured) {
+      toast.error('Sum Insured is required'); return
     }
     setSubmitting(true)
     const payload = {
@@ -516,7 +531,14 @@ export default function InsuranceRegister() {
 
               <div className="grid grid-cols-3 gap-4">
                 <div className="space-y-1.5"><Label>Year of Purchase</Label><Input type="number" value={form.year_of_purchase} onChange={setF('year_of_purchase')} placeholder="2022" /></div>
-                <div className="space-y-1.5"><Label>Years of Service</Label><Input type="number" value={form.years_of_service} onChange={setF('years_of_service')} placeholder="3" /></div>
+                <div className="space-y-1.5">
+                  <Label>Years of Service <span className="text-[10px] text-gray-400">(auto)</span></Label>
+                  <div className="h-10 flex items-center px-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <span className="text-sm font-semibold text-nova-teal tabular-nums">
+                      {form.years_of_service ? `${form.years_of_service} yr${Number(form.years_of_service) !== 1 ? 's' : ''}` : '—'}
+                    </span>
+                  </div>
+                </div>
                 <div className="space-y-1.5">
                   <Label>Age Bracket</Label>
                   <Select value={form.age_bracket || '__none__'} onValueChange={(v) => set('age_bracket', v === '__none__' ? '' : v)}>
