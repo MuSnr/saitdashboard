@@ -80,7 +80,7 @@ export default function Login() {
           </div>
         </div>
 
-        <p className="relative text-gray-500 text-xs">© 2025 Nova Pioneer · Asset Reconciliation Platform</p>
+        <p className="relative text-gray-500 text-xs">© 2026 Nova Pioneer · Asset Reconciliation Platform</p>
       </div>
 
       {/* ── Right panel ────────────────────────────────────────── */}
