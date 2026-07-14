@@ -6,10 +6,18 @@ export const api = axios.create({
   timeout: 20000,
 })
 
-// ── Request interceptor — attach token ────────────────────────────────────────
+// ── Request interceptor — attach token + region override ─────────────────────
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('sait-token')
   if (token) config.headers.Authorization = `Bearer ${token}`
+
+  // For super_admin profile switching — append active region to all GET requests
+  // so backend scopes data to the currently viewed profile
+  const activeRegion = localStorage.getItem('sait-active-region')
+  if (activeRegion && config.method === 'get') {
+    config.params = { ...config.params, region: activeRegion }
+  }
+
   return config
 })
 

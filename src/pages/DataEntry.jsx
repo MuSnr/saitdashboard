@@ -80,7 +80,7 @@ const statusBadge = {
 }
 
 export default function DataEntry() {
-  const { isAdmin, isKenya, currencySymbol } = useAuth()
+  const { isAdmin, isKenya, currencySymbol, isSuperAdmin, region } = useAuth()
   const { campuses, getSubCampusesFor, loading: campusLoading } = useCampuses()
   const fmt = (n) => Number(n || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
@@ -136,14 +136,15 @@ export default function DataEntry() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await fetchAssets()
+      const params = isSuperAdmin ? { region } : {}
+      const data = await fetchAssets(params)
       setAssets(Array.isArray(data) ? data : [])
     } catch (err) {
       toast.error(getApiError(err))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [isSuperAdmin, region])
 
   useEffect(() => { load() }, [load])
 
