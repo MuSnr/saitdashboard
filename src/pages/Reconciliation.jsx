@@ -65,7 +65,7 @@ function Section({ title, icon: Icon, count, accent, children, defaultOpen = tru
 }
 
 export default function Reconciliation() {
-  const { isAdmin, currencySymbol } = useAuth()
+  const { isAdmin, currencySymbol, isKenya } = useAuth()
   const { campuses, getSubCampusesFor } = useCampuses()
 
   const [data,          setData]          = useState(null)
@@ -295,7 +295,10 @@ export default function Reconciliation() {
               { label: 'Matched',                    value: data.summary.matchedCount,                           colour: 'text-green-600',  sub: 'Linked both sides' },
               { label: 'Ghost Items',                value: data.summary.ghostItemsCount,                       colour: 'text-red-600',    sub: 'Insurance — no asset' },
               { label: 'Uninsured Assets',           value: data.summary.uninsuredAssetsCount,                  colour: 'text-amber-600',  sub: 'Asset — no cover' },
-              { label: 'Monthly Premiums at Risk',   value: `${currencySymbol} ${fmt(data.summary.totalMonthlyAtRisk)}`,        colour: 'text-red-600',    sub: 'Paid for ghost items' },
+              { label: isKenya ? 'Annual Premiums at Risk' : 'Monthly Premiums at Risk',
+                value: `${currencySymbol} ${fmt(isKenya ? (data.summary.totalAnnualAtRisk || 0) : data.summary.totalMonthlyAtRisk)}`,
+                colour: 'text-red-600',
+                sub: isKenya ? 'Annual premiums paid for ghost items' : 'Paid for ghost items' },
               { label: 'Uninsured Asset Value',      value: `${currencySymbol} ${fmt(data.summary.totalUninsuredValue)}`,       colour: 'text-amber-600',  sub: 'No insurance cover' },
             ].map(({ label, value, colour, sub }) => (
               <Card key={label}><CardContent className="p-4">
@@ -332,7 +335,7 @@ export default function Reconciliation() {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="bg-red-50 dark:bg-red-900/10 border-b border-gray-100 dark:border-gray-800">
-                        {['Campus', 'Class', 'Description', 'Serial #', 'Sum Insured', 'Monthly Premium', 'Status', 'Action'].map((h) => (
+                        {['Campus', 'Class', 'Description', 'Serial #', 'Sum Insured', isKenya ? 'Annual Premium' : 'Monthly Premium', 'Status', 'Action'].map((h) => (
                           <th key={h} className="px-4 py-3 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
@@ -345,7 +348,11 @@ export default function Reconciliation() {
                           <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs max-w-[180px] truncate" title={g.description}>{g.description || '—'}</td>
                           <td className="px-4 py-3 font-mono text-[10px] text-gray-500">{g.serialNumber || '—'}</td>
                           <td className="px-4 py-3 font-semibold text-nova-teal text-xs tabular-nums">{currencySymbol} {fmt(g.sumInsured)}</td>
-                          <td className="px-4 py-3 text-red-600 font-semibold text-xs tabular-nums">{currencySymbol} {fmt(g.monthlyPremium)}/mo</td>
+                          <td className="px-4 py-3 text-red-600 font-semibold text-xs tabular-nums">
+                            {isKenya
+                              ? `${currencySymbol} ${fmt(g.annualPremium)}/yr`
+                              : `${currencySymbol} ${fmt(g.monthlyPremium)}/mo`}
+                          </td>
                           <td className="px-4 py-3">
                             <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${statusColour[g.status] || 'bg-gray-100 text-gray-600'}`}>
                               {g.status}
@@ -547,7 +554,9 @@ export default function Reconciliation() {
                         </p>
                         <p className="text-xs text-nova-teal font-semibold mt-1">
                           Sum Insured: {currencySymbol} {fmt(record.sumInsured)}
-                          {record.monthlyPremium ? ` · Premium: ${currencySymbol} ${fmt(record.monthlyPremium)}/mo` : ''}
+                          {isKenya
+                            ? (record.annualPremium ? ` · Annual Premium: ${currencySymbol} ${fmt(record.annualPremium)}/yr` : '')
+                            : (record.monthlyPremium ? ` · Premium: ${currencySymbol} ${fmt(record.monthlyPremium)}/mo` : '')}
                         </p>
                       </div>
                       <Button

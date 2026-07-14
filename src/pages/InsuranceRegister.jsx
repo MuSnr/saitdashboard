@@ -328,7 +328,7 @@ export default function InsuranceRegister() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                    {['Subsidiary', 'Status', 'Class', 'Description', 'Linked Asset', 'Sum Insured', 'Monthly Premium', 'Annual Premium', ...(isAdmin ? [''] : [])].map((h) => (
+                    {['Subsidiary', 'Status', 'Class', 'Description', 'Linked Asset', 'Sum Insured', isKenya ? 'Annual Premium' : 'Monthly Premium', 'Annual Premium', ...(isAdmin ? [''] : [])].map((h) => (
                       <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -363,7 +363,9 @@ export default function InsuranceRegister() {
                         )}
                       </td>
                       <td className="px-4 py-3 font-semibold text-nova-teal text-xs tabular-nums">{fmtMoney(r.sumInsured || 0)}</td>
-                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs tabular-nums">{fmtMoney(r.monthlyPremium || 0)}</td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs tabular-nums">
+                        {isKenya ? '—' : fmtMoney(r.monthlyPremium || 0)}
+                      </td>
                       <td className="px-4 py-3 text-gray-600 dark:text-gray-400 text-xs tabular-nums">
                         <span className="text-nova-teal font-medium">
                           {fmtMoney((r.annualPremium ?? r.december2025Premium) || 0)}
