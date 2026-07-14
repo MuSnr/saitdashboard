@@ -196,9 +196,11 @@ export default function DataEntry() {
     e.preventDefault()
 
     if (!form.subsidiary) { toast.error('Campus is required'); return }
-    if (!form.insuranceClass) { toast.error('Insurance Class is required'); return }
-    if (!form.description.trim()) { toast.error('Item Description is required'); return }
-    if (!form.unitPrice || Number(form.unitPrice) < 0) { toast.error('Unit Price is required'); return }
+    if (!isKenya && !form.insuranceClass) { toast.error('Insurance Class is required'); return }
+    if (!isKenya && !form.description.trim()) { toast.error('Item Description is required'); return }
+    if (!isKenya && (!form.unitPrice || Number(form.unitPrice) < 0)) { toast.error('Unit Price is required'); return }
+    if (isKenya && !form.asset_name.trim() && !form.description.trim()) { toast.error('Asset Name is required'); return }
+    if (!form.unitPrice || Number(form.unitPrice) < 0) { toast.error('Unit Cost is required'); return }
 
     setSubmitting(true)
     const payload = {
