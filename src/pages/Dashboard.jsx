@@ -214,9 +214,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState(null)
   const [showAll, setShowAll] = useState(false)
-  const { isAdmin, isKenya: rawIsKenya, currencySymbol: rawCurrency } = useAuth()
+  const { isAdmin, isKenya: rawIsKenya, currencySymbol: rawCurrency, isSuperAdmin, region } = useAuth()
   const navigate = useNavigate()
-  // Use safe fallbacks so component never crashes if user/auth not fully loaded
   const isKenya        = rawIsKenya  ?? false
   const currencySymbol = rawCurrency ?? 'R'
   const fmtM = makeFmtM(currencySymbol)
@@ -224,12 +223,15 @@ export default function Dashboard() {
   const load = useCallback(() => {
     setLoading(true)
     setError(null)
-    fetchDashboardAnalytics()
+    // Pass ?region for super_admin so backend scopes correctly to active profile
+    const params = isSuperAdmin ? { region } : undefined
+    fetchDashboardAnalytics(params)
       .then((d) => { setData(d || null) })
       .catch((e) => setError(e?.message || 'Failed to load'))
       .finally(() => setLoading(false))
-  }, [])
+  }, [isSuperAdmin, region])
 
+  // Reload when region changes (super_admin profile switch)
   useEffect(() => { load() }, [load])
 
   if (loading) return (

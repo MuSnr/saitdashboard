@@ -56,7 +56,7 @@ const setF = (setForm) => (key) => (e) => setForm((p) => ({ ...p, [key]: e.targe
 const setV = (setForm) => (key) => (v) => setForm((p) => ({ ...p, [key]: v }))
 
 export default function Incidents() {
-  const { isAdmin, isCampusManager } = useAuth()
+  const { isAdmin, isCampusManager, isSuperAdmin, region } = useAuth()
   const { campuses } = useCampuses()
   const navigate = useNavigate()
 
@@ -78,12 +78,15 @@ export default function Incidents() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await fetchIncidents()
+      // Pass active region for super_admin so backend filters correctly
+      const params = isSuperAdmin ? { region } : {}
+      const data = await fetchIncidents(params)
       setIncidents(Array.isArray(data) ? data : [])
     } catch (err) { toast.error(getApiError(err)) }
     finally { setLoading(false) }
-  }, [])
+  }, [isSuperAdmin, region])
 
+  // Reload when region changes (super_admin profile switch)
   useEffect(() => { load() }, [load])
 
   const filtered = incidents.filter((i) =>

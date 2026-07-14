@@ -41,8 +41,8 @@ export const changePassword   = (data)                => api.put('/users/change-
 export const getMe            = ()                    => api.get('/users/me')
 
 // ── Dashboard ─────────────────────────────────────────────────────────────────
-export const fetchDashboardAnalytics = () =>
-  api.get('/dashboard/analytics').then((r) => r.data).catch(() => null)
+export const fetchDashboardAnalytics = (params) =>
+  api.get('/dashboard/analytics', { params }).then((r) => r.data).catch(() => null)
 
 // ── Assets ────────────────────────────────────────────────────────────────────
 export const fetchAssets  = (params) =>
