@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   BarChart3, Plus, FileText, Users, Settings, Search,
   TrendingUp, Moon, Sun, LogOut, Shield, Bell, ChevronLeft,
-  MapPin, GitMerge, AlertCircle,
+  MapPin, GitMerge, AlertCircle, Globe,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
@@ -37,7 +37,7 @@ export function Layout({ children }) {
   const [unread, setUnread] = useState(0)
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, logout, isSuperAdmin, region, switchRegion } = useAuth()
   const { theme, toggleTheme } = useTheme()
 
   // Initialise unread count from user object
@@ -107,13 +107,17 @@ export function Layout({ children }) {
 
         {/* Logo */}
         <div className={`flex items-center gap-3 px-4 pt-6 pb-5 ${collapsed ? 'justify-center px-0' : ''}`}>
-          <div className="w-9 h-9 bg-nova-navy rounded-xl flex items-center justify-center font-bold text-nova-green text-sm flex-shrink-0 shadow-sm">
-            SA
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-sm flex-shrink-0 shadow-sm ${
+            region === 'Kenya' ? 'bg-green-600 text-white' : 'bg-nova-navy text-nova-green'
+          }`}>
+            {region === 'Kenya' ? 'KE' : 'ZA'}
           </div>
           {!collapsed && (
             <div>
               <p className="font-bold text-nova-navy dark:text-white text-base leading-none">SAIT</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">Nova Pioneer</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                {region === 'Kenya' ? 'Kenya · Nova Pioneer' : 'South Africa · Nova Pioneer'}
+              </p>
             </div>
           )}
         </div>
@@ -215,6 +219,35 @@ export function Layout({ children }) {
             <button className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400">
               <Search size={18} />
             </button>
+
+            {/* ── Super Admin region switcher ─────────────────────── */}
+            {isSuperAdmin && (
+              <div className="flex items-center gap-1 px-2 py-1 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                <Globe size={13} className="text-gray-400 flex-shrink-0" />
+                <button
+                  onClick={() => switchRegion('South Africa')}
+                  title="Switch to South Africa profile"
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg transition-colors ${
+                    region === 'South Africa'
+                      ? 'bg-nova-navy text-white'
+                      : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                  }`}
+                >
+                  ZA
+                </button>
+                <button
+                  onClick={() => switchRegion('Kenya')}
+                  title="Switch to Kenya profile"
+                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg transition-colors ${
+                    region === 'Kenya'
+                      ? 'bg-green-600 text-white'
+                      : 'text-gray-500 hover:text-gray-800 dark:hover:text-gray-200'
+                  }`}
+                >
+                  KE
+                </button>
+              </div>
+            )}
             <button className="relative p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-500 dark:text-gray-400" onClick={handleBellClick}>
               <Bell size={18} />
               {unread > 0 ? (

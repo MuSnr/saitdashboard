@@ -118,8 +118,8 @@ export const deleteUser   = (id)       => api.delete(`/users/${id}`).then((r) =>
 export const approveUser  = (id, action) => api.put(`/users/${id}/approve`, { action }).then((r) => r.data)
 
 // ── Campuses ──────────────────────────────────────────────────────────────────
-export const fetchCampuses  = () =>
-  api.get('/campuses').then((r) => r.data?.campuses || []).catch(() => [])
+export const fetchCampuses  = (params) =>
+  api.get('/campuses', { params }).then((r) => r.data?.campuses || []).catch(() => [])
 export const createCampus   = (data)     => api.post('/campuses', data).then((r) => r.data)
 export const updateCampus   = (id, data) => api.put(`/campuses/${id}`, data).then((r) => r.data)
 export const deleteCampus   = (id)       => api.delete(`/campuses/${id}`).then((r) => r.data)

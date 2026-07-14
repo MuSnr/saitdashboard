@@ -5,16 +5,18 @@ import { useAuth } from '@/context/AuthContext'
 const CampusContext = createContext(undefined)
 
 export function CampusProvider({ children }) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, region, isSuperAdmin } = useAuth()
   const [campuses, setCampuses] = useState([])
-  const [subCampuses, setSubCampuses] = useState([]) // all sub-campuses
+  const [subCampuses, setSubCampuses] = useState([])
   const [loading, setLoading] = useState(false)
 
   const reload = useCallback(async () => {
     if (!isAuthenticated) return
     setLoading(true)
     try {
-      const [c, sc] = await Promise.all([fetchCampuses(), fetchSubCampuses()])
+      // Pass active region for super_admin so backend returns the right campuses
+      const params = isSuperAdmin && region ? { region } : undefined
+      const [c, sc] = await Promise.all([fetchCampuses(params), fetchSubCampuses()])
       setCampuses(Array.isArray(c) ? c : [])
       setSubCampuses(Array.isArray(sc) ? sc : [])
     } catch {
@@ -22,9 +24,10 @@ export function CampusProvider({ children }) {
     } finally {
       setLoading(false)
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, region, isSuperAdmin])
 
-  useEffect(() => { reload() }, [reload])
+  // Reload campuses whenever region changes (super_admin switching profiles)
+  useEffect(() => { reload() }, [reload, region])
 
   /**
    * Get sub-campuses that belong to a specific campus _id
