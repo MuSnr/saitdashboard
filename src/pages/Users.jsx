@@ -398,7 +398,7 @@ export default function Users() {
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : editUser ? 'Save Changes' : 'Send Invite'}
+                {submitting ? <><Loader2 size={14} className="animate-spin" /> {editUser ? 'Saving…' : 'Sending Invite…'}</> : editUser ? 'Save Changes' : 'Send Invite'}
               </Button>
             </DialogFooter>
           </form>
