@@ -14,6 +14,7 @@ import { fetchAssets, createAsset, updateAsset, deleteAsset, bulkImportAssets, d
 import { useCampuses } from '@/context/CampusContext'
 import { Link } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import DocumentLinkInput from '@/components/DocumentLinkInput'
 
 // ── Static insurance class list ───────────────────────────────────────────────
 const INSURANCE_CLASSES = [
@@ -29,6 +30,27 @@ const INSURANCE_CLASSES = [
   'Sasria',
   'Broker Fees',
   'TWK Assist / Bystand',
+]
+
+// ── Kenya Asset Classes ───────────────────────────────────────────────────────
+const KE_ASSET_CLASSES = [
+  'Buildings',
+  'Equipment - Computers',
+  'Equipment - Electronic',
+  'Equipment - General',
+  'Equipment - Infirmary',
+  'Equipment - Kitchen',
+  'Equipment - Laboratory',
+  'Equipment - Leased',
+  'Equipment - Sports',
+  'Equipment - Tech Installations',
+  'Equipment - Tech Other',
+  'Expensed',
+  'Fire Fighting Equipment',
+  'Fixtures',
+  'Furniture',
+  'Property Equipment & Fixtures',
+  'Signage',
 ]
 
 const INSURANCE_STATUSES = ['Insured', 'Request Removal', 'Request Addition', 'Stolen', 'Not Insured']
@@ -186,7 +208,7 @@ export default function DataEntry() {
       years_of_service:     a.years_of_service     ? String(a.years_of_service) : '',
       age_bracket:          a.age_bracket          || '',
       asset_class:          a.asset_class          || '',
-      document_link:        a.document_link        || '',
+      document_link:        a.document_link        || '',   // shared by both SA and KE
       pr_ref:               a.pr_ref               || '',
     })
     setDialogOpen(true)
@@ -391,7 +413,7 @@ export default function DataEntry() {
                       <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                         {(isKenya
                           ? ['Asset ID', 'Campus', 'Asset Name', 'Location', 'Department', 'Asset Class', 'Qty', 'Unit Cost', 'Total Cost', 'Year', 'Invoice', '']
-                          : ['Asset ID', 'Campus', 'Sub-Campus', 'Insurance Class', 'Description', 'Serial #', 'Qty', 'Unit Price', 'Sum Insured', 'Status', 'Yr', '']
+                          : ['Asset ID', 'Campus', 'Sub-Campus', 'Insurance Class', 'Description', 'Serial #', 'Qty', 'Unit Price', 'Sum Insured', 'Status', 'Yr', 'Doc', '']
                         ).map((h) => (
                           <th key={h} className="px-3 py-3 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
@@ -443,6 +465,11 @@ export default function DataEntry() {
                                   : <span className="text-gray-300 text-xs">—</span>}
                               </td>
                               <td className="px-3 py-2.5 text-xs text-gray-400">{a.year}</td>
+                              <td className="px-3 py-2.5">
+                                {a.document_link
+                                  ? <a href={a.document_link} target="_blank" rel="noopener noreferrer" className="p-1 rounded text-nova-teal hover:bg-nova-teal/10" title="Document"><ExternalLink size={13} /></a>
+                                  : <span className="text-gray-300 text-xs">—</span>}
+                              </td>
                             </>
                           )}
                           <td className="px-3 py-2.5">
@@ -683,7 +710,13 @@ export default function DataEntry() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label>Asset Class</Label>
-                  <Input value={form.asset_class} onChange={(e) => set('asset_class', e.target.value)} placeholder="Furniture, IT Equipment…" />
+                  <Select value={form.asset_class || '__none__'} onValueChange={(v) => set('asset_class', v === '__none__' ? '' : v)}>
+                    <SelectTrigger><SelectValue placeholder="Select asset class" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Select class —</SelectItem>
+                      {KE_ASSET_CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Serial Number</Label>
@@ -734,15 +767,19 @@ export default function DataEntry() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Invoice / Document Link</Label>
-                  <Input type="url" value={form.document_link} onChange={(e) => set('document_link', e.target.value)} placeholder="https://drive.google.com/…" />
-                  <p className="text-[10px] text-gray-400">Proof of value — required for KE audit</p>
+                <div className="col-span-2">
+                  <DocumentLinkInput
+                    value={form.document_link}
+                    onChange={(url) => set('document_link', url)}
+                    label="Invoice / Document Link"
+                    hint="Proof of value — required for KE audit. Upload a file or paste a link."
+                  />
                 </div>
-                <div className="space-y-1.5">
-                  <Label>PR Reference</Label>
-                  <Input value={form.pr_ref} onChange={(e) => set('pr_ref', e.target.value)} placeholder="PR-2025-001" />
-                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>PR Reference</Label>
+                <Input value={form.pr_ref} onChange={(e) => set('pr_ref', e.target.value)} placeholder="PR-2025-001" />
               </div>
 
               <div className="space-y-1.5">
@@ -832,6 +869,14 @@ export default function DataEntry() {
                 <Label>Notes</Label>
                 <Input value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Any additional context…" />
               </div>
+
+              {/* Invoice / Document — SA */}
+              <DocumentLinkInput
+                value={form.document_link}
+                onChange={(url) => set('document_link', url)}
+                label="Invoice / Document"
+                hint="Attach an invoice, photo or paste a Google Drive link."
+              />
             </>)}
 
             <DialogFooter>

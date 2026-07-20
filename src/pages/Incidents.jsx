@@ -1,5 +1,5 @@
 import { Layout } from '@/components/Layout'
-import { Plus, Edit2, Trash2, AlertCircle, Loader2, RefreshCw, CheckCircle } from 'lucide-react'
+import { Plus, Edit2, Trash2, AlertCircle, Loader2, RefreshCw, CheckCircle, Download } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,6 +17,7 @@ import {
 import { useAuth } from '@/context/AuthContext'
 import { useCampuses } from '@/context/CampusContext'
 import { useNavigate } from 'react-router-dom'
+import { downloadIncidentPdf } from '@/lib/incidentPdf'
 
 const INCIDENT_TYPES    = ['Theft', 'Accidental Damage', 'Natural Disaster', 'Fire', 'Power Surge', 'Other']
 const TIMING_TYPES      = ['Occurred', 'Noticed']
@@ -293,6 +294,11 @@ export default function Incidents() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          {/* Download PDF */}
+                          <button onClick={() => downloadIncidentPdf(i)} title="Download PDF Report"
+                            className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                            <Download size={13} />
+                          </button>
                           {canWrite && !i.is_converted_to_claim && (
                             <button onClick={() => handleConvert(i)} disabled={converting === i._id} title="Convert to Claim"
                               className="p-1.5 rounded-lg text-nova-green hover:bg-nova-green/10 transition-colors disabled:opacity-50">
@@ -325,8 +331,22 @@ export default function Incidents() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editMode ? `Edit Incident — ${viewIncident?.incident_ref}` : 'Incident Notification Report'}</DialogTitle>
-            <DialogDescription>Security Services · Nova Pioneer</DialogDescription>
+            <div className="flex items-start justify-between">
+              <div>
+                <DialogTitle>{editMode ? `Edit Incident — ${viewIncident?.incident_ref}` : 'Incident Notification Report'}</DialogTitle>
+                <DialogDescription>Security Services · Nova Pioneer</DialogDescription>
+              </div>
+              {editMode && viewIncident && (
+                <button
+                  type="button"
+                  onClick={() => downloadIncidentPdf(viewIncident)}
+                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-nova-navy border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50 transition-colors flex-shrink-0 mt-1"
+                  title="Download PDF Report"
+                >
+                  <Download size={13} /> Download PDF
+                </button>
+              )}
+            </div>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-6 pt-2">

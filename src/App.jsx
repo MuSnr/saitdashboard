@@ -20,6 +20,7 @@ import Locations from '@/pages/Locations'
 import NotFound from '@/pages/NotFound'
 import Reconciliation from '@/pages/Reconciliation'
 import Incidents from '@/pages/Incidents'
+import ReportIncident from '@/pages/ReportIncident'
 
 export default function App() {
   const { loading } = useAuth()
@@ -71,7 +72,17 @@ export default function App() {
         }
       />
       <Route path="/reconciliation" element={<ProtectedRoute><Reconciliation /></ProtectedRoute>} />
-      <Route path="/incidents"      element={<ProtectedRoute><Incidents /></ProtectedRoute>} />
+      {/* Incidents — admin/super_admin only (confidential) */}
+      <Route
+        path="/incidents"
+        element={
+          <ProtectedRoute roles={['admin', 'super_admin']}>
+            <Incidents />
+          </ProtectedRoute>
+        }
+      />
+      {/* Public incident report form — no login required */}
+      <Route path="/report-incident" element={<ReportIncident />} />
 
       {/* ── Fallback ──────────────────────────────────────────── */}
       <Route path="*" element={<NotFound />} />

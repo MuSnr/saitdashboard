@@ -18,6 +18,7 @@ import {
 import { useCampuses } from '@/context/CampusContext'
 import { useAuth } from '@/context/AuthContext'
 import { Link } from 'react-router-dom'
+import DocumentLinkInput from '@/components/DocumentLinkInput'
 
 const insuranceClasses = [
   'Fire', 'Buildings Combined', 'Business All Risk', 'Electronic Equipment',
@@ -26,6 +27,26 @@ const insuranceClasses = [
 ]
 const statuses = ['Active', 'Request Removal', 'Request Addition', 'Request Update', 'Removed', 'Insured', 'Pending Review']
 const categories = ['Asset Based', 'Risk Based', 'Fees']
+
+const KE_ASSET_CLASSES = [
+  'Buildings',
+  'Equipment - Computers',
+  'Equipment - Electronic',
+  'Equipment - General',
+  'Equipment - Infirmary',
+  'Equipment - Kitchen',
+  'Equipment - Laboratory',
+  'Equipment - Leased',
+  'Equipment - Sports',
+  'Equipment - Tech Installations',
+  'Equipment - Tech Other',
+  'Expensed',
+  'Fire Fighting Equipment',
+  'Fixtures',
+  'Furniture',
+  'Property Equipment & Fixtures',
+  'Signage',
+]
 
 const statusColour = {
   Active:             'bg-green-100 text-green-700',
@@ -508,7 +529,16 @@ export default function InsuranceRegister() {
                     <SelectContent>{statuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5"><Label>Asset Class</Label><Input value={form.asset_class} onChange={setF('asset_class')} placeholder="Furniture, IT Equipment…" /></div>
+                <div className="space-y-1.5">
+                  <Label>Asset Class</Label>
+                  <Select value={form.asset_class || '__none__'} onValueChange={(v) => set('asset_class', v === '__none__' ? '' : v)}>
+                    <SelectTrigger><SelectValue placeholder="Select asset class" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— Select class —</SelectItem>
+                      {KE_ASSET_CLASSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -593,14 +623,15 @@ export default function InsuranceRegister() {
                 <div className="space-y-1.5"><Label>Retired Value ({currencySymbol})</Label><Input type="number" min="0" step="0.01" value={form.retired_asset_value} onChange={setF('retired_asset_value')} placeholder="0.00" /></div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label>Invoice / Document Link <span className="text-red-500">*</span></Label>
-                  <Input value={form.document_link} onChange={setF('document_link')} placeholder="https://drive.google.com/…" />
-                  <p className="text-[10px] text-gray-400">Proof of value — required for KE audit</p>
-                </div>
-                <div className="space-y-1.5"><Label>PR Reference</Label><Input value={form.pr_ref} onChange={setF('pr_ref')} placeholder="PR-2025-001" /></div>
-              </div>
+              <DocumentLinkInput
+                value={form.document_link}
+                onChange={(url) => set('document_link', url)}
+                label="Invoice / Document Link"
+                required={true}
+                hint="Proof of value — required for KE audit. Upload PDF/image or paste a link."
+              />
+
+              <div className="space-y-1.5"><Label>PR Reference</Label><Input value={form.pr_ref} onChange={setF('pr_ref')} placeholder="PR-2025-001" /></div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5"><Label>Retire / Write-off Date</Label><Input type="date" value={form.retire_write_off_date} onChange={setF('retire_write_off_date')} /></div>
@@ -689,6 +720,14 @@ export default function InsuranceRegister() {
                 <div className="space-y-1.5"><Label>Interest Noted</Label><Input value={form.interestNoted} onChange={setF('interestNoted')} /></div>
                 <div className="space-y-1.5"><Label>Notes</Label><Input value={form.notes} onChange={setF('notes')} /></div>
               </div>
+
+              {/* Invoice / Document — SA */}
+              <DocumentLinkInput
+                value={form.document_link}
+                onChange={(url) => set('document_link', url)}
+                label="Invoice / Document"
+                hint="Attach an invoice, photo or paste a Google Drive link."
+              />
             </>)}
 
             {!editRecord && (

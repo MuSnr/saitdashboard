@@ -16,15 +16,18 @@ const navItems = [
   { label: 'Insurance Register', icon: Shield,      href: '/insurance-register' },
   { label: 'Reconciliation',     icon: GitMerge,    href: '/reconciliation' },
   { label: 'Claims Pipeline',    icon: TrendingUp,  href: '/claims' },
-  { label: 'Incidents',          icon: AlertCircle, href: '/incidents' },
   { label: 'Reports',            icon: BarChart3,   href: '/reports' },
   { label: 'Policy Documents',   icon: FileText,    href: '/policies' },
 ]
 
-// Only shown to admins
+// Admin-only nav items (Incidents is confidential — admin/super_admin only)
 const adminNavItems = [
   { label: 'User Management',    icon: Users,       href: '/users' },
   { label: 'Campuses & Locations', icon: MapPin,    href: '/locations' },
+]
+
+const adminOnlyNavItems = [
+  { label: 'Incidents',          icon: AlertCircle, href: '/incidents' },
 ]
 
 const bottomItems = [
@@ -48,7 +51,10 @@ export function Layout({ children }) {
   const handleBellClick = async () => {
     setUnread(0)
     try { await markNotificationsRead() } catch (_) {}
-    navigate('/incidents')
+    // Only navigate to incidents if admin — campus_manager/viewer can't see it
+    if (user?.role === 'admin' || user?.role === 'super_admin') {
+      navigate('/incidents')
+    }
   }
 
   const isActive = (href) =>
@@ -136,6 +142,7 @@ export function Layout({ children }) {
                 <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest px-3 mt-4 mb-2">Admin</p>
               )}
               {collapsed && <div className="my-2 border-t border-gray-100 dark:border-gray-800" />}
+              {adminOnlyNavItems.map((item) => <SidebarLink key={item.href} {...item} />)}
               {adminNavItems.map((item) => <SidebarLink key={item.href} {...item} />)}
             </>
           )}
