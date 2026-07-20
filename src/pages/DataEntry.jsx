@@ -413,7 +413,7 @@ export default function DataEntry() {
                       <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
                         {(isKenya
                           ? ['Asset ID', 'Campus', 'Asset Name', 'Location', 'Department', 'Asset Class', 'Qty', 'Unit Cost', 'Total Cost', 'Year', 'Invoice', '']
-                          : ['Asset ID', 'Campus', 'Sub-Campus', 'Insurance Class', 'Description', 'Serial #', 'Qty', 'Unit Price', 'Sum Insured', 'Status', 'Yr', 'Doc', '']
+                          : ['Asset ID', 'Campus', 'Sub-Campus', 'Insurance Class', 'Description', 'Serial #', 'Qty', 'Unit Price', 'Sum Insured', 'Status', 'Yr', 'PR Ref', 'Doc', '']
                         ).map((h) => (
                           <th key={h} className="px-3 py-3 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                         ))}
@@ -465,6 +465,7 @@ export default function DataEntry() {
                                   : <span className="text-gray-300 text-xs">—</span>}
                               </td>
                               <td className="px-3 py-2.5 text-xs text-gray-400">{a.year}</td>
+                              <td className="px-3 py-2.5 font-mono text-[10px] text-gray-500">{a.pr_ref || '—'}</td>
                               <td className="px-3 py-2.5">
                                 {a.document_link
                                   ? <a href={a.document_link} target="_blank" rel="noopener noreferrer" className="p-1 rounded text-nova-teal hover:bg-nova-teal/10" title="Document"><ExternalLink size={13} /></a>
@@ -868,6 +869,11 @@ export default function DataEntry() {
               <div className="space-y-1.5">
                 <Label>Notes</Label>
                 <Input value={form.notes} onChange={(e) => set('notes', e.target.value)} placeholder="Any additional context…" />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>PR Reference</Label>
+                <Input value={form.pr_ref} onChange={(e) => set('pr_ref', e.target.value)} placeholder="PR-2025-001" />
               </div>
 
               {/* Invoice / Document — SA */}

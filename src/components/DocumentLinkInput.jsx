@@ -57,6 +57,16 @@ export default function DocumentLinkInput({
     return <FileText size={14} className="text-nova-teal" />
   }
 
+  // For Cloudinary raw PDFs, add fl_attachment:false to force inline display
+  const getOpenUrl = (url) => {
+    if (!url) return url
+    // Cloudinary raw resource — add inline flag
+    if (url.includes('res.cloudinary.com') && url.includes('/raw/')) {
+      return url.replace('/upload/', '/upload/fl_attachment:false/')
+    }
+    return url
+  }
+
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
@@ -94,7 +104,7 @@ export default function DocumentLinkInput({
           />
           {value && (
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-              <a href={value} target="_blank" rel="noopener noreferrer"
+              <a href={getOpenUrl(value)} target="_blank" rel="noopener noreferrer"
                 className="p-1 rounded text-nova-teal hover:bg-nova-teal/10" title="Open link">
                 <ExternalLink size={13} />
               </a>
@@ -112,7 +122,7 @@ export default function DocumentLinkInput({
             /* File already uploaded — show it */
             <div className="flex items-center gap-2 px-3 py-2.5 bg-nova-teal/10 border border-nova-teal/30 rounded-lg">
               {getFileIcon(value)}
-              <a href={value} target="_blank" rel="noopener noreferrer"
+              <a href={getOpenUrl(value)} target="_blank" rel="noopener noreferrer"
                 className="text-xs text-nova-teal truncate flex-1 hover:underline">
                 {value.split('/').pop()?.split('?')[0] || 'Uploaded file'}
               </a>

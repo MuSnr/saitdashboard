@@ -699,12 +699,24 @@ export default function InsuranceRegister() {
                 <div className="space-y-1.5"><Label>Sum Insured ({currencySymbol}) *</Label><Input type="number" value={form.sumInsured} onChange={setF('sumInsured')} step="0.01" required /></div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5"><Label>Monthly Premium ({currencySymbol})</Label><Input type="number" value={form.monthlyPremium} onChange={setF('monthlyPremium')} step="0.01" /></div>
-                <div className="space-y-1.5"><Label>Rate (%)</Label><Input type="number" value={form.rate} onChange={setF('rate')} step="0.01" /></div>
                 <div className="space-y-1.5">
-                  <Label>Annual Premium ({currencySymbol})</Label>
-                  <Input type="number" value={form.december2025Premium} onChange={setF('december2025Premium')} step="0.01" placeholder={`e.g. ${currentYear} premium`} />
+                  <Label>
+                    Escalation Rate (%)
+                    <span className="text-[10px] text-gray-400 ml-1">
+                      {form.classOfInsurance === 'Buildings Combined' ? '— 5% (Buildings)' : '— TBD'}
+                    </span>
+                  </Label>
+                  <Input
+                    type="number"
+                    value={form.classOfInsurance === 'Buildings Combined' ? '5' : form.rate}
+                    onChange={setF('rate')}
+                    step="0.01"
+                    readOnly={form.classOfInsurance === 'Buildings Combined'}
+                    className={form.classOfInsurance === 'Buildings Combined' ? 'bg-gray-50 dark:bg-gray-800 cursor-not-allowed' : ''}
+                    placeholder="Rate %"
+                  />
                 </div>
                 <div className="space-y-1.5">
                   <Label>Premium Year</Label>
@@ -730,27 +742,6 @@ export default function InsuranceRegister() {
               />
             </>)}
 
-            {!editRecord && (
-              <div className="space-y-2">
-                <Label>Upload Documents</Label>
-                <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-6 cursor-pointer hover:border-nova-green transition-colors bg-gray-50 dark:bg-gray-800/30">
-                  <Upload size={24} className="text-nova-green" />
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Click to upload or drag & drop</p>
-                  <p className="text-xs text-gray-400">PDF, DOC, Excel, JPG, PNG, ZIP</p>
-                  <input type="file" multiple className="hidden" accept=".pdf,.doc,.docx,.xlsx,.xls,.jpg,.jpeg,.png,.zip" onChange={(e) => setFiles((p) => [...p, ...Array.from(e.target.files || [])])} />
-                </label>
-                {files.map((f, i) => (
-                  <div key={i} className="flex items-center justify-between p-2.5 bg-nova-green/10 border border-nova-green/30 rounded-lg">
-                    <div className="flex items-center gap-2">
-                      <File size={15} className="text-nova-green" />
-                      <span className="text-sm truncate max-w-[220px]">{f.name}</span>
-                      <span className="text-xs text-gray-400">{(f.size / 1024).toFixed(1)}KB</span>
-                    </div>
-                    <button type="button" onClick={() => setFiles((p) => p.filter((_, j) => j !== i))} className="text-red-500 hover:text-red-700 p-1 rounded transition-colors"><X size={15} /></button>
-                  </div>
-                ))}
-              </div>
-            )}
             {!editRecord && (
               <div className="space-y-2">
                 <Label>Upload Documents</Label>
