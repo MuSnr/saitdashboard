@@ -9,33 +9,42 @@ import { Separator } from '@/components/ui/separator'
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react'
 import { api } from '@/services/api'
 
-const CAMPUSES_ZA = ['Ruimsig', 'Paulshof', 'Midrand', 'Boksburg', 'North Riding']
-const CAMPUSES_KE = [
-  'Network', 'Tatu Boys', 'Tatu Girls', 'Tatu Primary', 'Athi Primary',
-  'Eldoret Boys', 'Eldoret Girls', 'Tatu Shared', 'Tatu International', 'Eldoret Primary',
-]
-const ALL_CAMPUSES = [...CAMPUSES_ZA, ...CAMPUSES_KE].sort()
-const INCIDENT_TYPES = ['Theft', 'Accidental Damage', 'Natural Disaster', 'Fire', 'Power Surge', 'Other']
-const TIMING_TYPES   = ['Occurred', 'Noticed']
-const LOCATION_TYPES = ['On NP Property', 'Outside NP Property']
-const DAMAGE_TYPES   = ['None', 'Damaged', 'Lost property / equipment', 'Both Damaged & Lost']
+const CAMPUSES = [
+  'Ruimsig','Paulshof','Midrand','Boksburg','North Riding',
+  'Network','Tatu Boys','Tatu Girls','Tatu Primary','Athi Primary',
+  'Eldoret Boys','Eldoret Girls','Tatu Shared','Tatu International','Eldoret Primary',
+].sort()
+
+const INCIDENT_TYPES  = ['Theft','Accidental Damage','Natural Disaster','Fire','Power Surge','Other']
+const LOCATION_TYPES  = ['On NP Property','Other (select this option if the incident happened outside an NP property)']
+const DAMAGE_TYPES    = ['None','Damaged','Lost property / equipment','Both Damaged & Lost']
 
 const blank = {
-  reporter_name: '', reporter_email: '', campus_name: '',
-  incident_date_time: '', timing_type: 'Occurred',
-  incident_type: 'Theft', description: '',
-  incident_location_type: 'On NP Property', exact_location: '',
-  duty_station_detail: '',
-  people_involved: '', involvement_description: '',
-  injured_persons: '', injury_description: '', injury_actions_taken: '',
-  property_damage_type: 'None', property_description: '', damage_description: '',
-  prevention_actions: '', post_incident_actions: '',
-  additional_comments: '',
-  notifications_list: '',
+  reporter_name:'', reporter_email:'', campus_name:'',
+  incident_date_time:'', timing_type:'Occurred',
+  incident_type:'Theft', description:'',
+  incident_location_type:'On NP Property', exact_location:'',
+  duty_station_detail:'',
+  people_involved:'', involvement_description:'',
+  injured_persons:'', injury_description:'', injury_actions_taken:'',
+  property_damage_type:'None', property_description:'', damage_description:'',
+  damage_link:'',
+  prevention_actions:'', post_incident_actions:'',
+  additional_comments:'',
+  notifications_list:'',
+}
+
+// Section header styled like the original (orange bold)
+function SectionHeader({ num, title }) {
+  return (
+    <div className="flex items-center gap-2 pb-2 border-b-2 border-orange-500 mb-4">
+      <h3 className="font-bold text-orange-600 text-base">{`Section ${num} : ${title}`}</h3>
+    </div>
+  )
 }
 
 export default function ReportIncident() {
-  const [form, setForm]         = useState(blank)
+  const [form, setForm]           = useState(blank)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted]   = useState(false)
   const [refNumber, setRefNumber]   = useState('')
@@ -48,13 +57,10 @@ export default function ReportIncident() {
     e.preventDefault()
     if (!form.reporter_name || !form.reporter_email || !form.campus_name ||
         !form.incident_date_time || !form.description || !form.incident_type) {
-      setError('Please fill in all required fields.')
-      return
+      setError('Please fill in all required fields (marked with *).'); return
     }
-    setError('')
-    setSubmitting(true)
+    setError(''); setSubmitting(true)
     try {
-      // Find campus_id by name via public endpoint
       const res = await api.post('/incidents/public', {
         reporter_name:          form.reporter_name,
         reporter_email:         form.reporter_email,
@@ -83,9 +89,7 @@ export default function ReportIncident() {
       setSubmitted(true)
     } catch (err) {
       setError(err?.response?.data?.message || 'Submission failed. Please try again.')
-    } finally {
-      setSubmitting(false)
-    }
+    } finally { setSubmitting(false) }
   }
 
   if (submitted) {
@@ -96,20 +100,16 @@ export default function ReportIncident() {
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
               <CheckCircle size={36} className="text-green-600" />
             </div>
-            <h2 className="text-2xl font-bold text-nova-navy">Report Submitted</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Report Submitted</h2>
             {refNumber && (
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
                 <p className="text-xs text-gray-500 mb-1">Your reference number</p>
-                <p className="text-2xl font-mono font-bold text-nova-navy">{refNumber}</p>
+                <p className="text-2xl font-mono font-bold text-orange-600">{refNumber}</p>
                 <p className="text-xs text-gray-400 mt-1">Please keep this for your records</p>
               </div>
             )}
-            <p className="text-sm text-gray-500">
-              Your incident report has been received and will be reviewed by the Nova Pioneer team. You will be contacted if further information is required.
-            </p>
-            <Button onClick={() => { setForm(blank); setSubmitted(false); setRefNumber('') }} variant="outline" className="w-full">
-              Submit Another Report
-            </Button>
+            <p className="text-sm text-gray-500">Your incident report has been received and will be reviewed by the Security Services team.</p>
+            <Button onClick={() => { setForm(blank); setSubmitted(false) }} variant="outline" className="w-full">Submit Another Report</Button>
           </CardContent>
         </Card>
       </div>
@@ -117,204 +117,246 @@ export default function ReportIncident() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto space-y-6">
+    <div className="min-h-screen bg-white py-6 px-4">
+      <div className="max-w-3xl mx-auto space-y-0">
 
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-nova-navy rounded-xl flex items-center justify-center font-bold text-nova-green text-base shadow-sm">NP</div>
-            <div className="text-left">
-              <p className="font-bold text-nova-navy text-lg leading-none">Nova Pioneer Schools</p>
-              <p className="text-xs text-gray-500 mt-0.5">Incident Notification Form</p>
+        {/* ── Header — matches original exactly ─────────────────────────── */}
+        <div className="flex items-start justify-between mb-6 pb-4 border-b border-gray-200">
+          {/* Logo left */}
+          <div className="flex items-center gap-3">
+            <div className="w-16 h-16 bg-[#0A1628] rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 rounded-full border-4 border-[#4ADE80] flex items-center justify-center">
+                <div className="w-7 h-7 rounded-full bg-[#4ADE80] flex items-center justify-center">
+                  <div className="w-4 h-4 rounded-full bg-[#0A1628]" />
+                </div>
+              </div>
+            </div>
+            <div>
+              <p className="font-black text-xl text-[#0A1628] tracking-wide leading-tight">NOVA PIONEER</p>
+              <p className="text-[10px] text-gray-500 tracking-widest uppercase">Schools for Innovators &amp; Leaders</p>
             </div>
           </div>
-          <p className="text-sm text-gray-500 max-w-lg mx-auto">
-            Use this form to report any incident. No login is required. All submissions are confidential and reviewed by management.
-          </p>
+          {/* Right header */}
+          <div className="text-right">
+            <p className="font-bold text-xl text-gray-900">SECURITY SERVICES</p>
+            <p className="font-bold text-base text-orange-600 mt-0.5">Incident Ref | {refNumber || '—'}</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Report Submitted on : {new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'2-digit' }).replace(/ /g,'-')} {new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', hour12:true }).toUpperCase()}
+            </p>
+          </div>
+        </div>
+
+        {/* ── Title bar ─────────────────────────────────────────────────────── */}
+        <div className="bg-[#3C3C64] text-white text-center font-bold text-lg py-3 mb-6 rounded-sm">
+          INCIDENT NOTIFICATION REPORT
         </div>
 
         {error && (
-          <div className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-            <AlertCircle size={16} className="flex-shrink-0" />
-            {error}
+          <div className="flex items-center gap-3 p-4 mb-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+            <AlertCircle size={16} className="flex-shrink-0" />{error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-8">
 
-          {/* Section 1 — Reporter */}
-          <Card><CardContent className="p-5 space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-6 h-6 rounded-full bg-nova-navy text-white text-xs flex items-center justify-center font-bold flex-shrink-0">1</span>
-              <h3 className="font-semibold text-nova-navy">Reporter Information</h3>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Full Name *</Label>
-                <Input value={form.reporter_name} onChange={set('reporter_name')} placeholder="Your full name" required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Email Address *</Label>
-                <Input type="email" value={form.reporter_email} onChange={set('reporter_email')} placeholder="your@email.com" required />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Campus / Duty Station *</Label>
-                <Select value={form.campus_name} onValueChange={setV('campus_name')}>
-                  <SelectTrigger><SelectValue placeholder="Select campus" /></SelectTrigger>
-                  <SelectContent>{ALL_CAMPUSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Specific Location / Department</Label>
-                <Input value={form.duty_station_detail} onChange={set('duty_station_detail')} placeholder="e.g. Grade 4 Block, Admin Office" />
-              </div>
-            </div>
-          </CardContent></Card>
+          {/* ── Section 1 — Reporter's Details ──────────────────────────────── */}
+          <div>
+            <SectionHeader num="1" title="Reporter's Details" />
 
-          {/* Section 2 — Incident Details */}
-          <Card><CardContent className="p-5 space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-6 h-6 rounded-full bg-nova-navy text-white text-xs flex items-center justify-center font-bold flex-shrink-0">2</span>
-              <h3 className="font-semibold text-nova-navy">Incident Details</h3>
+            {/* 3-column bordered table like original */}
+            <div className="grid grid-cols-3 border border-gray-300 mb-4">
+              {[
+                { label: 'a) Report compiled by', key: 'reporter_name', placeholder: 'Full Name', required: true },
+                { label: "b) Reporter's normal duty station", key: 'campus_name', isSelect: true },
+                { label: 'c) Date and time of the incident', key: 'incident_date_time', type: 'datetime-local', required: true },
+              ].map(({ label, key, placeholder, required, type, isSelect }, i) => (
+                <div key={key} className={`p-3 ${i < 2 ? 'border-r border-gray-300' : ''}`}>
+                  <p className="text-xs font-semibold text-gray-600 mb-1.5">{label}</p>
+                  {isSelect ? (
+                    <Select value={form[key]} onValueChange={setV(key)}>
+                      <SelectTrigger className="h-8 text-sm border-0 border-b border-gray-300 rounded-none px-0 focus:ring-0">
+                        <SelectValue placeholder="Select campus" />
+                      </SelectTrigger>
+                      <SelectContent>{CAMPUSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                    </Select>
+                  ) : (
+                    <Input
+                      type={type || 'text'}
+                      value={form[key]}
+                      onChange={set(key)}
+                      placeholder={placeholder}
+                      required={required}
+                      className="h-8 text-sm border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0"
+                    />
+                  )}
+                </div>
+              ))}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Date & Time *</Label>
-                <Input type="datetime-local" value={form.incident_date_time} onChange={set('incident_date_time')} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Was this when it occurred or noticed?</Label>
-                <Select value={form.timing_type} onValueChange={setV('timing_type')}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{TIMING_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label>Type of Incident *</Label>
-                <Select value={form.incident_type} onValueChange={setV('incident_type')}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{INCIDENT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Location Type</Label>
-                <Select value={form.incident_location_type} onValueChange={setV('incident_location_type')}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{LOCATION_TYPES.map((l) => <SelectItem key={l} value={l}>{l}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Exact Location</Label>
-              <Input value={form.exact_location} onChange={set('exact_location')} placeholder="e.g. Server room, Parking lot B" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Brief Description of Incident *</Label>
-              <Textarea value={form.description} onChange={set('description')} rows={3} placeholder="Describe what happened in detail…" required />
-            </div>
-          </CardContent></Card>
 
-          {/* Section 3 — People Involved */}
-          <Card><CardContent className="p-5 space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-6 h-6 rounded-full bg-nova-navy text-white text-xs flex items-center justify-center font-bold flex-shrink-0">3</span>
-              <h3 className="font-semibold text-nova-navy">People Involved</h3>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Names of people involved (witnesses, staff, students)</Label>
-              <Textarea value={form.people_involved} onChange={set('people_involved')} rows={2} placeholder="List names and their roles…" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Nature of their involvement</Label>
-              <Textarea value={form.involvement_description} onChange={set('involvement_description')} rows={2} placeholder="Describe how each person was involved…" />
-            </div>
-          </CardContent></Card>
-
-          {/* Section 4 — Injuries */}
-          <Card><CardContent className="p-5 space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-6 h-6 rounded-full bg-nova-navy text-white text-xs flex items-center justify-center font-bold flex-shrink-0">4</span>
-              <h3 className="font-semibold text-nova-navy">Injuries</h3>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Names of injured persons (if any)</Label>
-              <Input value={form.injured_persons} onChange={set('injured_persons')} placeholder="Leave blank if no injuries" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Description of injuries</Label>
-              <Textarea value={form.injury_description} onChange={set('injury_description')} rows={2} placeholder="Nature and extent of injuries…" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Actions taken (first aid, hospital, etc.)</Label>
-              <Textarea value={form.injury_actions_taken} onChange={set('injury_actions_taken')} rows={2} placeholder="What was done immediately after…" />
-            </div>
-          </CardContent></Card>
-
-          {/* Section 5 — Property Damage */}
-          <Card><CardContent className="p-5 space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-6 h-6 rounded-full bg-nova-navy text-white text-xs flex items-center justify-center font-bold flex-shrink-0">5</span>
-              <h3 className="font-semibold text-nova-navy">Property Damage / Loss</h3>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Type of property damage</Label>
-              <Select value={form.property_damage_type} onValueChange={setV('property_damage_type')}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{DAMAGE_TYPES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-gray-800">
+                d) Is the date and time indicated above when the incident occurred or when the incident was noticed?
+              </p>
+              <Select value={form.timing_type} onValueChange={setV('timing_type')}>
+                <SelectTrigger className="w-full max-w-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Occurred">This is when the incident occurred.</SelectItem>
+                  <SelectItem value="Noticed">This is when the incident was noticed.</SelectItem>
+                </SelectContent>
               </Select>
             </div>
-            {form.property_damage_type !== 'None' && (<>
+          </div>
+
+          <Separator />
+
+          {/* ── Section 2 — Incident Details ────────────────────────────────── */}
+          <div>
+            <SectionHeader num="2" title="Incident Details" />
+
+            {/* 2-column bordered table for location */}
+            <div className="grid grid-cols-2 border border-gray-300 mb-4">
+              <div className="p-3 border-r border-gray-300">
+                <p className="text-xs font-semibold text-gray-600 mb-1.5">a) Where did the incident happen?</p>
+                <Select value={form.incident_location_type} onValueChange={setV('incident_location_type')}>
+                  <SelectTrigger className="h-8 text-sm border-0 border-b border-gray-300 rounded-none px-0 focus:ring-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOCATION_TYPES.map((l) => <SelectItem key={l} value={l}><span className="text-xs">{l}</span></SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="p-3">
+                <p className="text-xs font-semibold text-gray-600 mb-1.5">b) What was the exact location of the incident?</p>
+                <Input value={form.exact_location} onChange={set('exact_location')} placeholder="e.g. Nairobi CBD" className="h-8 text-sm border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0" />
+              </div>
+            </div>
+
+            <div className="space-y-2 mb-4">
+              <p className="text-sm font-bold text-gray-800">Type of Incident *</p>
+              <Select value={form.incident_type} onValueChange={setV('incident_type')}>
+                <SelectTrigger className="w-full max-w-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>{INCIDENT_TYPES.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-bold text-gray-800">c) Brief description of the incident. *</p>
+              <Textarea value={form.description} onChange={set('description')} rows={5} placeholder="Describe what happened in detail…" required className="text-sm" />
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* ── Section 3 — People Involved ─────────────────────────────────── */}
+          <div>
+            <SectionHeader num="3" title="People Involved" />
+            <div className="space-y-4">
               <div className="space-y-1.5">
-                <Label>Description of items damaged or lost</Label>
-                <Textarea value={form.property_description} onChange={set('property_description')} rows={2} placeholder="List items with serial numbers if known…" />
+                <p className="text-sm font-bold text-gray-800">a) List the name(s) of people who were involved in or witnessed the incident.</p>
+                <Textarea value={form.people_involved} onChange={set('people_involved')} rows={2} placeholder="Names of witnesses, involved parties…" className="text-sm" />
               </div>
               <div className="space-y-1.5">
-                <Label>Nature of damage</Label>
-                <Textarea value={form.damage_description} onChange={set('damage_description')} rows={2} placeholder="How was the damage caused…" />
+                <p className="text-sm font-bold text-gray-800">b) Briefly describe the nature of their involvement in the incident.</p>
+                <Textarea value={form.involvement_description} onChange={set('involvement_description')} rows={2} placeholder="How were they involved?" className="text-sm" />
               </div>
-            </>)}
-            <div className="space-y-1.5">
-              <Label>Actions taken after the incident</Label>
-              <Textarea value={form.post_incident_actions} onChange={set('post_incident_actions')} rows={2} placeholder="Police report filed, items secured, etc." />
             </div>
-            <div className="space-y-1.5">
-              <Label>Actions to prevent recurrence</Label>
-              <Textarea value={form.prevention_actions} onChange={set('prevention_actions')} rows={2} placeholder="What can be done to prevent this happening again…" />
-            </div>
-          </CardContent></Card>
+          </div>
 
-          {/* Section 6 & 7 */}
-          <Card><CardContent className="p-5 space-y-4">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-6 h-6 rounded-full bg-nova-navy text-white text-xs flex items-center justify-center font-bold flex-shrink-0">6</span>
-              <h3 className="font-semibold text-nova-navy">Additional Information</h3>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Any other comments or context</Label>
-              <Textarea value={form.additional_comments} onChange={set('additional_comments')} rows={2} placeholder="Anything else relevant to this incident…" />
-            </div>
-            <Separator />
-            <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-full bg-nova-navy text-white text-xs flex items-center justify-center font-bold flex-shrink-0">7</span>
-              <h3 className="font-semibold text-nova-navy">Notifications</h3>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Who has been notified about this incident?</Label>
-              <Textarea value={form.notifications_list} onChange={set('notifications_list')} rows={2} placeholder="e.g. Campus Principal, HR Manager, Security…" />
-            </div>
-          </CardContent></Card>
+          <Separator />
 
-          <Button type="submit" disabled={submitting} className="w-full h-12 text-base font-semibold">
+          {/* ── Section 4 — Injuries ────────────────────────────────────────── */}
+          <div>
+            <SectionHeader num="4" title="Injuries" />
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <p className="text-sm font-bold text-gray-800">a) Names of person or persons injured during the incident if any.</p>
+                <Input value={form.injured_persons} onChange={set('injured_persons')} placeholder="N/A if no injuries" className="text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-bold text-gray-800">b) Brief description of the nature of the injury or injuries.</p>
+                <Textarea value={form.injury_description} onChange={set('injury_description')} rows={2} placeholder="N/A if no injuries" className="text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-bold text-gray-800">c) Brief account of the actions that were taken with regard to the injured person or people.</p>
+                <Textarea value={form.injury_actions_taken} onChange={set('injury_actions_taken')} rows={2} placeholder="First aid, hospital referral, etc." className="text-sm" />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* ── Section 5 — Property Damage ─────────────────────────────────── */}
+          <div>
+            <SectionHeader num="5" title="Damage to or loss of property and equipment." />
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <p className="text-sm font-bold text-gray-800">a) Was property damaged or lost in this incident?:</p>
+                <Select value={form.property_damage_type} onValueChange={setV('property_damage_type')}>
+                  <SelectTrigger className="w-full max-w-xs"><SelectValue /></SelectTrigger>
+                  <SelectContent>{DAMAGE_TYPES.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-bold text-gray-800">b) Please provide a detailed description of the property or equipment damaged or lost in the incident.</p>
+                <Textarea value={form.property_description} onChange={set('property_description')} rows={2} placeholder="List items with serial numbers if known…" className="text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-bold text-gray-800">c) If damaged, please give a description of the nature of the damage.</p>
+                <Textarea value={form.damage_description} onChange={set('damage_description')} rows={2} placeholder="N/A if not applicable" className="text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-bold text-gray-800">d) Upload a link or pictures of the damage or scene of incident.</p>
+                <Input value={form.damage_link} onChange={set('damage_link')} placeholder="Paste a Google Drive or image link" className="text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-bold text-gray-800">e) Brief account of the actions that were taken to prevent the damage or loss of property or equipment.</p>
+                <Textarea value={form.prevention_actions} onChange={set('prevention_actions')} rows={2} placeholder="Actions taken to prevent further loss…" className="text-sm" />
+              </div>
+              <div className="space-y-1.5">
+                <p className="text-sm font-bold text-gray-800">f) Brief account of the actions that were taken upon realisation of the damage or loss of property or equipment.</p>
+                <Textarea value={form.post_incident_actions} onChange={set('post_incident_actions')} rows={2} placeholder="What did you do when you discovered the damage/loss?" className="text-sm" />
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* ── Section 6 — Additional Information ──────────────────────────── */}
+          <div>
+            <SectionHeader num="6" title="Any Other Information" />
+            <div className="space-y-1.5">
+              <p className="text-sm font-bold text-gray-800">a) Please indicate any additional comments/questions/statements you may have.</p>
+              <Textarea value={form.additional_comments} onChange={set('additional_comments')} rows={3} className="text-sm" />
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* ── Section 7 — Notifications ────────────────────────────────────── */}
+          <div>
+            <SectionHeader num="7" title="Notifications" />
+            <p className="text-sm text-gray-600 mb-3">This report was notified to the following people.</p>
+            <div className="space-y-1.5">
+              <p className="text-sm font-bold text-gray-800">a), b), c) Names of people notified (one per line)</p>
+              <Textarea
+                value={form.notifications_list}
+                onChange={set('notifications_list')}
+                rows={3}
+                placeholder={"a) Campus Principal\nb) HR Manager\nc) Security"}
+                className="text-sm font-mono"
+              />
+            </div>
+          </div>
+
+          <Button type="submit" disabled={submitting} className="w-full h-12 text-base font-semibold bg-[#0A1628] hover:bg-[#1a2f50]">
             {submitting ? <><Loader2 size={18} className="animate-spin" /> Submitting Report…</> : 'Submit Incident Report'}
           </Button>
 
           <p className="text-center text-xs text-gray-400 pb-4">
-            © 2026 Nova Pioneer · Asset Reconciliation Platform · All submissions are confidential
+            © 2026 Nova Pioneer Schools for Innovators &amp; Leaders · All submissions are confidential
           </p>
         </form>
       </div>
