@@ -63,9 +63,18 @@ export default function ReportIncident() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.reporter_name || !form.reporter_email || !form.campus_name ||
-        !form.incident_date_time || !form.description || !form.incident_type) {
-      setError('Please fill in all required fields (marked with *).'); return
+    // Identify exactly which required field is missing for clear error messages
+    const missing = []
+    if (!form.reporter_name.trim())    missing.push('Full Name (Section 1a)')
+    if (!form.reporter_email.trim())   missing.push('Email (Section 1)')
+    if (!form.campus_name)             missing.push('Campus / Duty Station (Section 1b)')
+    if (!form.incident_date_time)      missing.push('Date and Time (Section 1c)')
+    if (!form.description.trim())      missing.push('Brief Description (Section 2c)')
+    if (!form.incident_type)           missing.push('Type of Incident (Section 2)')
+
+    if (missing.length > 0) {
+      setError(`Please complete these required fields: ${missing.join(', ')}.`)
+      return
     }
     setError(''); setSubmitting(true)
     try {
