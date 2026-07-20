@@ -295,7 +295,7 @@ export default function Incidents() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           {/* Download PDF */}
-                          <button onClick={() => downloadIncidentPdf(i)} title="Download PDF Report"
+                          <button onClick={() => downloadIncidentPdf(i).catch(() => {})} title="Download PDF Report"
                             className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
                             <Download size={13} />
                           </button>

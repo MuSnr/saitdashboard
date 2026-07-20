@@ -4,7 +4,7 @@ import { jsPDF } from 'jspdf'
  * Generate Nova Pioneer branded Incident Notification Report PDF
  * Matches the original Google Form output exactly.
  */
-export function downloadIncidentPdf(incident) {
+export async function downloadIncidentPdf(incident) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
   const PW     = 210
@@ -157,26 +157,26 @@ export function downloadIncidentPdf(incident) {
   // ════════════════════════════════════════════════════════════════════════════
   y = MARGIN
 
-  // Nova Pioneer logo area (left) — draw a stylised NP badge
-  doc.setFillColor(10, 22, 40)
-  doc.roundedRect(MARGIN, y, 38, 18, 2, 2, 'F')
-  // Inner green ring
-  doc.setFillColor(74, 222, 128)
-  doc.circle(MARGIN + 9, y + 9, 7, 'F')
-  doc.setFillColor(10, 22, 40)
-  doc.circle(MARGIN + 9, y + 9, 5, 'F')
-  doc.setTextColor(74, 222, 128)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(5)
-  doc.text('NP', MARGIN + 9, y + 10, { align: 'center' })
-  // Nova Pioneer text
-  doc.setTextColor(255, 255, 255)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(9)
-  doc.text('NOVA PIONEER', MARGIN + 20, y + 7)
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(5.5)
-  doc.text('SCHOOLS FOR INNOVATORS & LEADERS', MARGIN + 20, y + 12)
+  // Nova Pioneer logo — load from public folder
+  try {
+    const response = await fetch('/nova-pioneer-logo.png')
+    const blob = await response.blob()
+    const dataUrl = await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result)
+      reader.readAsDataURL(blob)
+    })
+    doc.addImage(dataUrl, 'PNG', MARGIN, y, 55, 18)
+  } catch {
+    // Fallback — draw text logo if image fails
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(26, 58, 107)
+    doc.text('NOVA PIONEER', MARGIN, y + 8)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(7)
+    doc.text('SCHOOLS FOR INNOVATORS & LEADERS', MARGIN, y + 14)
+  }
 
   // Right side header text
   doc.setFont('helvetica', 'bold')
