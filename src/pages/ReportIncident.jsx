@@ -122,18 +122,28 @@ export default function ReportIncident() {
 
         {/* ── Header — matches original exactly ─────────────────────────── */}
         <div className="flex items-start justify-between mb-6 pb-4 border-b border-gray-200">
-          {/* Logo left */}
+          {/* Logo left — Nova Pioneer hexagonal logo */}
           <div className="flex items-center gap-3">
-            <div className="w-16 h-16 bg-[#0A1628] rounded-full flex items-center justify-center flex-shrink-0">
-              <div className="w-12 h-12 rounded-full border-4 border-[#4ADE80] flex items-center justify-center">
-                <div className="w-7 h-7 rounded-full bg-[#4ADE80] flex items-center justify-center">
-                  <div className="w-4 h-4 rounded-full bg-[#0A1628]" />
-                </div>
-              </div>
-            </div>
+            <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+              {/* Outer hexagon */}
+              <path d="M30 2L54 16V44L30 58L6 44V16L30 2Z" stroke="#1a3a6b" strokeWidth="2.5" fill="none"/>
+              {/* Middle hexagon */}
+              <path d="M30 10L47 20V40L30 50L13 40V20L30 10Z" stroke="#1a3a6b" strokeWidth="1.8" fill="none"/>
+              {/* Inner hexagon */}
+              <path d="M30 18L41 24V36L30 42L19 36V24L30 18Z" stroke="#1a3a6b" strokeWidth="1.5" fill="none"/>
+              {/* Cross lines top-left to bottom-right */}
+              <line x1="6" y1="16" x2="30" y2="2" stroke="#1a3a6b" strokeWidth="1.2"/>
+              <line x1="13" y1="20" x2="30" y2="10" stroke="#1a3a6b" strokeWidth="1.2"/>
+              <line x1="6" y1="44" x2="30" y2="58" stroke="#1a3a6b" strokeWidth="1.2"/>
+              <line x1="13" y1="40" x2="30" y2="50" stroke="#1a3a6b" strokeWidth="1.2"/>
+              <line x1="54" y1="16" x2="30" y2="2" stroke="#1a3a6b" strokeWidth="1.2"/>
+              <line x1="47" y1="20" x2="30" y2="10" stroke="#1a3a6b" strokeWidth="1.2"/>
+              <line x1="54" y1="44" x2="30" y2="58" stroke="#1a3a6b" strokeWidth="1.2"/>
+              <line x1="47" y1="40" x2="30" y2="50" stroke="#1a3a6b" strokeWidth="1.2"/>
+            </svg>
             <div>
-              <p className="font-black text-xl text-[#0A1628] tracking-wide leading-tight">NOVA PIONEER</p>
-              <p className="text-[10px] text-gray-500 tracking-widest uppercase">Schools for Innovators &amp; Leaders</p>
+              <p className="font-black text-2xl text-[#1a3a6b] tracking-wide leading-tight">NOVA PIONEER</p>
+              <p className="text-[11px] text-[#1a3a6b] tracking-widest uppercase font-medium">Schools for Innovators &amp; Leaders</p>
             </div>
           </div>
           {/* Right header */}
@@ -193,7 +203,7 @@ export default function ReportIncident() {
               ))}
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 mt-5">
               <p className="text-sm font-bold text-gray-800">
                 d) Is the date and time indicated above when the incident occurred or when the incident was noticed?
               </p>
@@ -242,7 +252,7 @@ export default function ReportIncident() {
               </Select>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 mt-5">
               <p className="text-sm font-bold text-gray-800">c) Brief description of the incident. *</p>
               <Textarea value={form.description} onChange={set('description')} rows={5} placeholder="Describe what happened in detail…" required className="text-sm" />
             </div>
