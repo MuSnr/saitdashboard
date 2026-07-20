@@ -63,14 +63,28 @@ export default function ReportIncident() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    // Identify exactly which required field is missing for clear error messages
+
+    // Read values from the form DOM directly to catch browser autofill
+    const formEl = e.target
+    const domEmail = formEl.querySelector('input[autocomplete="email"]')?.value || ''
+    const domName  = formEl.querySelector('input[autocomplete="name"]')?.value  || ''
+
+    // Merge DOM values into state in case autofill didn't trigger onChange
+    const effectiveForm = {
+      ...form,
+      reporter_email: form.reporter_email || domEmail,
+      reporter_name:  form.reporter_name  || domName,
+    }
+    if (domEmail && !form.reporter_email) setForm((p) => ({ ...p, reporter_email: domEmail }))
+    if (domName  && !form.reporter_name)  setForm((p) => ({ ...p, reporter_name:  domName  }))
+
     const missing = []
-    if (!form.reporter_name.trim())    missing.push('Full Name (Section 1a)')
-    if (!form.reporter_email.trim())   missing.push('Email (Section 1)')
-    if (!form.campus_name)             missing.push('Campus / Duty Station (Section 1b)')
-    if (!form.incident_date_time)      missing.push('Date and Time (Section 1c)')
-    if (!form.description.trim())      missing.push('Brief Description (Section 2c)')
-    if (!form.incident_type)           missing.push('Type of Incident (Section 2)')
+    if (!effectiveForm.reporter_name.trim())  missing.push('Full Name (Section 1a)')
+    if (!effectiveForm.reporter_email.trim()) missing.push('Email (Section 1)')
+    if (!effectiveForm.campus_name)           missing.push('Campus / Duty Station (Section 1b)')
+    if (!effectiveForm.incident_date_time)    missing.push('Date and Time (Section 1c)')
+    if (!effectiveForm.description.trim())    missing.push('Brief Description (Section 2c)')
+    if (!effectiveForm.incident_type)         missing.push('Type of Incident (Section 2)')
 
     if (missing.length > 0) {
       setError(`Please complete these required fields: ${missing.join(', ')}.`)
@@ -79,28 +93,28 @@ export default function ReportIncident() {
     setError(''); setSubmitting(true)
     try {
       const res = await api.post('/incidents/public', {
-        reporter_name:          form.reporter_name,
-        reporter_email:         form.reporter_email,
-        campus_name:            form.campus_name,
-        incident_date_time:     form.incident_date_time,
-        timing_type:            form.timing_type,
-        incident_type:          form.incident_type,
-        description:            form.description,
-        duty_station_detail:    form.duty_station_detail,
-        incident_location_type: form.incident_location_type,
-        exact_location:         form.exact_location,
-        people_involved:        form.people_involved,
-        involvement_description:form.involvement_description,
-        injured_persons:        form.injured_persons,
-        injury_description:     form.injury_description,
-        injury_actions_taken:   form.injury_actions_taken,
-        property_damage_type:   form.property_damage_type,
-        property_description:   form.property_description,
-        damage_description:     form.damage_description,
-        prevention_actions:     form.prevention_actions,
-        post_incident_actions:  form.post_incident_actions,
-        additional_comments:    form.additional_comments,
-        notifications_list:     form.notifications_list,
+        reporter_name:          effectiveForm.reporter_name,
+        reporter_email:         effectiveForm.reporter_email,
+        campus_name:            effectiveForm.campus_name,
+        incident_date_time:     effectiveForm.incident_date_time,
+        timing_type:            effectiveForm.timing_type,
+        incident_type:          effectiveForm.incident_type,
+        description:            effectiveForm.description,
+        duty_station_detail:    effectiveForm.duty_station_detail,
+        incident_location_type: effectiveForm.incident_location_type,
+        exact_location:         effectiveForm.exact_location,
+        people_involved:        effectiveForm.people_involved,
+        involvement_description:effectiveForm.involvement_description,
+        injured_persons:        effectiveForm.injured_persons,
+        injury_description:     effectiveForm.injury_description,
+        injury_actions_taken:   effectiveForm.injury_actions_taken,
+        property_damage_type:   effectiveForm.property_damage_type,
+        property_description:   effectiveForm.property_description,
+        damage_description:     effectiveForm.damage_description,
+        prevention_actions:     effectiveForm.prevention_actions,
+        post_incident_actions:  effectiveForm.post_incident_actions,
+        additional_comments:    effectiveForm.additional_comments,
+        notifications_list:     effectiveForm.notifications_list,
       })
       setRefNumber(res.data?.incident?.incident_ref || '')
       setSubmitted(true)
@@ -197,8 +211,10 @@ export default function ReportIncident() {
                       type={type || 'text'}
                       value={form[key]}
                       onChange={set(key)}
+                      onBlur={set(key)}
                       placeholder={placeholder}
                       required={required}
+                      autoComplete={key === 'reporter_email' ? 'email' : key === 'reporter_name' ? 'name' : 'off'}
                       className="h-8 text-sm border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0"
                     />
                   )}
