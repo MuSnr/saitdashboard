@@ -209,6 +209,44 @@ export default function Incidents() {
           </div>
         </div>
 
+        {/* Share link banner — admin only */}
+        {isAdmin && (
+          <div className="flex flex-col sm:flex-row gap-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-nova-navy dark:text-white mb-1">
+                Employee Incident Report Links
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Share the appropriate link with your staff — no login required</p>
+            </div>
+            <div className="flex flex-col gap-2 flex-shrink-0">
+              {/* KE link */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700 flex-shrink-0">Kenya</span>
+                <code className="text-[10px] text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded truncate max-w-[220px]">
+                  {window.location.origin}/report-incident/ke
+                </code>
+                <button
+                  type="button"
+                  onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/report-incident/ke`); toast.success('Kenya link copied') }}
+                  className="text-[10px] text-nova-teal hover:underline flex-shrink-0"
+                >Copy</button>
+              </div>
+              {/* ZA link */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 flex-shrink-0">SA</span>
+                <code className="text-[10px] text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded truncate max-w-[220px]">
+                  {window.location.origin}/report-incident/za
+                </code>
+                <button
+                  type="button"
+                  onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/report-incident/za`); toast.success('SA link copied') }}
+                  className="text-[10px] text-nova-teal hover:underline flex-shrink-0"
+                >Copy</button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           {[

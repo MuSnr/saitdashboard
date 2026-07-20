@@ -82,7 +82,9 @@ export default function App() {
         }
       />
       {/* Public incident report form — no login required */}
+      {/* /report-incident/ke → Kenya only, /report-incident/za → SA only */}
       <Route path="/report-incident" element={<ReportIncident />} />
+      <Route path="/report-incident/:region" element={<ReportIncident />} />
 
       {/* ── Fallback ──────────────────────────────────────────── */}
       <Route path="*" element={<NotFound />} />

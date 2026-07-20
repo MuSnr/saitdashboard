@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,11 +10,11 @@ import { Separator } from '@/components/ui/separator'
 import { CheckCircle, Loader2, AlertCircle } from 'lucide-react'
 import { api } from '@/services/api'
 
-const CAMPUSES = [
-  'Ruimsig','Paulshof','Midrand','Boksburg','North Riding',
-  'Network','Tatu Boys','Tatu Girls','Tatu Primary','Athi Primary',
-  'Eldoret Boys','Eldoret Girls','Tatu Shared','Tatu International','Eldoret Primary',
-].sort()
+const CAMPUSES_ZA = ['Ruimsig', 'Paulshof', 'Midrand', 'Boksburg', 'North Riding']
+const CAMPUSES_KE = [
+  'Network', 'Tatu Boys', 'Tatu Girls', 'Tatu Primary', 'Athi Primary',
+  'Eldoret Boys', 'Eldoret Girls', 'Tatu Shared', 'Tatu International', 'Eldoret Primary',
+]
 
 const INCIDENT_TYPES  = ['Theft','Accidental Damage','Natural Disaster','Fire','Power Surge','Other']
 const LOCATION_TYPES  = ['On NP Property','Other (select this option if the incident happened outside an NP property)']
@@ -44,6 +45,13 @@ function SectionHeader({ num, title }) {
 }
 
 export default function ReportIncident() {
+  const { region } = useParams()  // 'ke' | 'za' | undefined (shows all)
+
+  // Determine which campuses to show based on URL
+  const isKE = region === 'ke'
+  const isZA = region === 'za'
+  const CAMPUSES = isKE ? CAMPUSES_KE : isZA ? CAMPUSES_ZA : [...CAMPUSES_ZA, ...CAMPUSES_KE].sort()
+  const regionLabel = isKE ? 'Kenya' : isZA ? 'South Africa' : ''
   const [form, setForm]           = useState(blank)
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted]   = useState(false)
@@ -129,8 +137,14 @@ export default function ReportIncident() {
           {/* Right header */}
           <div className="text-right">
             <p className="font-bold text-xl text-gray-900">SECURITY SERVICES</p>
-            <p className="font-bold text-base text-orange-600 mt-0.5">Incident Ref | {refNumber || '—'}</p>
-            <p className="text-xs text-gray-500 mt-0.5">
+            {regionLabel && (
+              <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mt-0.5 mb-0.5 ${
+                isKE ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+              }`}>
+                {regionLabel} Region
+              </span>
+            )}
+            <p className="font-bold text-base text-orange-600 mt-0.5">Incident Ref | —</p>            <p className="text-xs text-gray-500 mt-0.5">
               Report Submitted on : {new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'2-digit' }).replace(/ /g,'-')} {new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', hour12:true }).toUpperCase()}
             </p>
           </div>
