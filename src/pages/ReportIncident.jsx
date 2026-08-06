@@ -64,30 +64,28 @@ export default function ReportIncident() {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    // Read values from the form DOM directly to catch browser autofill
-    const formEl = e.target
-    const domEmail = formEl.querySelector('input[autocomplete="email"]')?.value || ''
-    const domName  = formEl.querySelector('input[autocomplete="name"]')?.value  || ''
+    // Use FormData to reliably capture all values including browser autofill
+    const fd = new FormData(e.target)
+    const domName  = (fd.get('reporter_name')  || '').toString().trim()
+    const domEmail = (fd.get('reporter_email') || '').toString().trim()
 
-    // Merge DOM values into state in case autofill didn't trigger onChange
+    // Merge with React state (campus, date, description come from controlled selects/inputs)
     const effectiveForm = {
       ...form,
-      reporter_email: form.reporter_email || domEmail,
-      reporter_name:  form.reporter_name  || domName,
+      reporter_name:  domName  || form.reporter_name,
+      reporter_email: domEmail || form.reporter_email,
     }
-    if (domEmail && !form.reporter_email) setForm((p) => ({ ...p, reporter_email: domEmail }))
-    if (domName  && !form.reporter_name)  setForm((p) => ({ ...p, reporter_name:  domName  }))
 
     const missing = []
-    if (!effectiveForm.reporter_name.trim())  missing.push('Full Name (Section 1a)')
-    if (!effectiveForm.reporter_email.trim()) missing.push('Email (Section 1)')
-    if (!effectiveForm.campus_name)           missing.push('Campus / Duty Station (Section 1b)')
-    if (!effectiveForm.incident_date_time)    missing.push('Date and Time (Section 1c)')
-    if (!effectiveForm.description.trim())    missing.push('Brief Description (Section 2c)')
-    if (!effectiveForm.incident_type)         missing.push('Type of Incident (Section 2)')
+    if (!effectiveForm.reporter_name)    missing.push('Full Name (Section 1a)')
+    if (!effectiveForm.reporter_email)   missing.push('Email (Section 1)')
+    if (!effectiveForm.campus_name)      missing.push('Campus / Duty Station (Section 1b)')
+    if (!effectiveForm.incident_date_time) missing.push('Date and Time (Section 1c)')
+    if (!effectiveForm.description.trim()) missing.push('Brief Description (Section 2c)')
+    if (!effectiveForm.incident_type)    missing.push('Type of Incident (Section 2)')
 
     if (missing.length > 0) {
-      setError(`Please complete these required fields: ${missing.join(', ')}.`)
+      setError(`Please complete: ${missing.join(', ')}.`)
       return
     }
     setError(''); setSubmitting(true)
@@ -209,6 +207,7 @@ export default function ReportIncident() {
                   ) : (
                     <Input
                       type={type || 'text'}
+                      name={key}
                       value={form[key]}
                       onChange={set(key)}
                       onBlur={set(key)}
