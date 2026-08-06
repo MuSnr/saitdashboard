@@ -64,31 +64,21 @@ export default function ReportIncident() {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    // Use FormData to reliably capture all values including browser autofill
-    const fd = new FormData(e.target)
-    const domName  = (fd.get('reporter_name')  || '').toString().trim()
-    const domEmail = (fd.get('reporter_email') || '').toString().trim()
-
-    // Merge with React state (campus, date, description come from controlled selects/inputs)
-    const effectiveForm = {
-      ...form,
-      reporter_name:  domName  || form.reporter_name,
-      reporter_email: domEmail || form.reporter_email,
-    }
-
     const missing = []
-    if (!effectiveForm.reporter_name)    missing.push('Full Name (Section 1a)')
-    if (!effectiveForm.reporter_email)   missing.push('Email (Section 1)')
-    if (!effectiveForm.campus_name)      missing.push('Campus / Duty Station (Section 1b)')
-    if (!effectiveForm.incident_date_time) missing.push('Date and Time (Section 1c)')
-    if (!effectiveForm.description.trim()) missing.push('Brief Description (Section 2c)')
-    if (!effectiveForm.incident_type)    missing.push('Type of Incident (Section 2)')
+    if (!form.reporter_name.trim())     missing.push('Full Name (Section 1a)')
+    if (!form.reporter_email.trim())    missing.push('Email')
+    if (!form.campus_name)              missing.push('Campus / Duty Station (Section 1b)')
+    if (!form.incident_date_time)       missing.push('Date and Time (Section 1c)')
+    if (!form.description.trim())       missing.push('Brief Description (Section 2c)')
+    if (!form.incident_type)            missing.push('Type of Incident (Section 2)')
 
     if (missing.length > 0) {
       setError(`Please complete: ${missing.join(', ')}.`)
       return
     }
     setError(''); setSubmitting(true)
+
+    const effectiveForm = form
     try {
       const res = await api.post('/incidents/public', {
         reporter_name:          effectiveForm.reporter_name,
@@ -188,37 +178,59 @@ export default function ReportIncident() {
           <div>
             <SectionHeader num="1" title="Reporter's Details" />
 
-            {/* 3-column bordered table like original */}
+            {/* 3-column bordered table — Section 1 a, b, c */}
             <div className="grid grid-cols-3 border border-gray-300 mb-4">
-              {[
-                { label: 'a) Report compiled by', key: 'reporter_name', placeholder: 'Full Name', required: true },
-                { label: "b) Reporter's normal duty station", key: 'campus_name', isSelect: true },
-                { label: 'c) Date and time of the incident', key: 'incident_date_time', type: 'datetime-local', required: true },
-              ].map(({ label, key, placeholder, required, type, isSelect }, i) => (
-                <div key={key} className={`p-3 ${i < 2 ? 'border-r border-gray-300' : ''}`}>
-                  <p className="text-xs font-semibold text-gray-600 mb-1.5">{label}</p>
-                  {isSelect ? (
-                    <Select value={form[key]} onValueChange={setV(key)}>
-                      <SelectTrigger className="h-8 text-sm border-0 border-b border-gray-300 rounded-none px-0 focus:ring-0">
-                        <SelectValue placeholder="Select campus" />
-                      </SelectTrigger>
-                      <SelectContent>{CAMPUSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                    </Select>
-                  ) : (
-                    <Input
-                      type={type || 'text'}
-                      name={key}
-                      value={form[key]}
-                      onChange={set(key)}
-                      onBlur={set(key)}
-                      placeholder={placeholder}
-                      required={required}
-                      autoComplete={key === 'reporter_email' ? 'email' : key === 'reporter_name' ? 'name' : 'off'}
-                      className="h-8 text-sm border-0 border-b border-gray-300 rounded-none px-0 focus-visible:ring-0"
-                    />
-                  )}
-                </div>
-              ))}
+              {/* a) Full Name */}
+              <div className="p-3 border-r border-gray-300">
+                <p className="text-xs font-semibold text-gray-600 mb-1.5">a) Report compiled by</p>
+                <input
+                  type="text"
+                  name="reporter_name"
+                  value={form.reporter_name}
+                  onChange={(e) => setForm((p) => ({ ...p, reporter_name: e.target.value }))}
+                  placeholder="Full Name"
+                  required
+                  autoComplete="name"
+                  className="w-full text-sm border-0 border-b border-gray-300 outline-none bg-transparent pb-1 focus:border-orange-500"
+                />
+              </div>
+              {/* b) Campus */}
+              <div className="p-3 border-r border-gray-300">
+                <p className="text-xs font-semibold text-gray-600 mb-1.5">b) Reporter's normal duty station</p>
+                <Select value={form.campus_name} onValueChange={(v) => setForm((p) => ({ ...p, campus_name: v }))}>
+                  <SelectTrigger className="h-8 text-sm border-0 border-b border-gray-300 rounded-none px-0 focus:ring-0">
+                    <SelectValue placeholder="Select campus" />
+                  </SelectTrigger>
+                  <SelectContent>{CAMPUSES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+              {/* c) Date & Time */}
+              <div className="p-3">
+                <p className="text-xs font-semibold text-gray-600 mb-1.5">c) Date and time of the incident</p>
+                <input
+                  type="datetime-local"
+                  name="incident_date_time"
+                  value={form.incident_date_time}
+                  onChange={(e) => setForm((p) => ({ ...p, incident_date_time: e.target.value }))}
+                  required
+                  className="w-full text-sm border-0 border-b border-gray-300 outline-none bg-transparent pb-1 focus:border-orange-500"
+                />
+              </div>
+            </div>
+
+            {/* Email — separate row below the table */}
+            <div className="border border-gray-300 p-3 mb-4 -mt-px">
+              <p className="text-xs font-semibold text-gray-600 mb-1.5">Email Address *</p>
+              <input
+                type="email"
+                name="reporter_email"
+                value={form.reporter_email}
+                onChange={(e) => setForm((p) => ({ ...p, reporter_email: e.target.value }))}
+                placeholder="your.email@novapioneer.com"
+                required
+                autoComplete="email"
+                className="w-full text-sm border-0 border-b border-gray-300 outline-none bg-transparent pb-1 focus:border-orange-500"
+              />
             </div>
 
             <div className="space-y-2 mt-5">
