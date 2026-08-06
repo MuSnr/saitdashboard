@@ -98,8 +98,8 @@ export async function downloadIncidentPdf(incident) {
   // ── Bordered table row (like Section 1 reporter table) ──────────────────────
   const tableRow = (cells) => {
     // cells = [{ label, value, w }]  w = fraction of CW (e.g. 0.33)
-    const ROW_H = 14
-    checkY(ROW_H + 2)
+    const ROW_H = 16  // increased from 14 to give more room
+    checkY(ROW_H + 4)
     let x = MARGIN
     cells.forEach(({ label, value, w }) => {
       const colW = CW * w
@@ -110,16 +110,16 @@ export async function downloadIncidentPdf(incident) {
       doc.setFont('helvetica', 'bold')
       doc.setFontSize(7.5)
       doc.setTextColor(...DGRAY)
-      doc.text(label, x + 2, y + 4.5)
+      doc.text(label, x + 2, y + 5)
       // value
       doc.setFont('helvetica', 'normal')
       doc.setFontSize(9)
       doc.setTextColor(...BLACK)
       const lines = doc.splitTextToSize(String(value || ''), colW - 4)
-      doc.text(lines[0] || '', x + 2, y + 10)
+      doc.text(lines[0] || '', x + 2, y + 11.5)
       x += colW
     })
-    y += ROW_H + 1
+    y += ROW_H + 3  // extra gap after table
   }
 
   // ── Two-column bordered cells (Section 2 location) ──────────────────────────
@@ -149,7 +149,7 @@ export async function downloadIncidentPdf(incident) {
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
     rightLines.forEach((l, i) => doc.text(l, MARGIN + colW + 2, y + 11 + i * 5))
-    y += H + 2
+    y += H + 4  // extra gap after table
   }
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -205,9 +205,7 @@ export async function downloadIncidentPdf(incident) {
   doc.text('INCIDENT NOTIFICATION REPORT', PW / 2, y + 7, { align: 'center' })
   y += 15
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // SECTION 1 — Reporter's Details
-  // ════════════════════════════════════════════════════════════════════════════
+  // ── SECTION 1 — Reporter's Details ─────────────────────────────────────────
   sectionHeader('Section 1 : Reporter\'s Details')
 
   tableRow([
@@ -216,20 +214,23 @@ export async function downloadIncidentPdf(incident) {
     { label: 'c) Date and time of the incident',   value: fmtDate(incident.incident_date_time),        w: 0.33 },
   ])
 
+  y += 3  // breathing room after table before question d)
+
   const timingText = incident.timing_type === 'Occurred'
     ? 'This is when the incident occurred.'
     : 'This is when the incident was noticed.'
   labelValue('d) Is the date and time indicated above when the incident occurred or when the incident was noticed?', timingText)
   rule()
 
-  // ════════════════════════════════════════════════════════════════════════════
-  // SECTION 2 — Incident Details
-  // ════════════════════════════════════════════════════════════════════════════
+  // ── SECTION 2 — Incident Details ────────────────────────────────────────────
   sectionHeader('Section 2 : Incident Details')
   twoColTable(
     { label: 'a) Where did the incident happen?',              value: incident.incident_location_type || '—' },
     { label: 'b) What was the exact location of the incident?', value: incident.exact_location || '—' }
   )
+
+  y += 3  // breathing room after table before description
+
   labelValue('c) Brief description of the incident.', incident.description)
   rule()
 
