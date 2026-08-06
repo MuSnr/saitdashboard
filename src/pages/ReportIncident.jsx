@@ -136,7 +136,31 @@ export default function ReportIncident() {
   }
 
   return (
-    <div className="min-h-screen bg-white py-6 px-4">
+    <div className="min-h-screen bg-white py-6 px-4" data-theme="light" style={{ colorScheme: 'light' }}>
+      {/* Force all form controls to light mode on this public page */}
+      <style>{`
+        [data-theme="light"] select,
+        [data-theme="light"] input,
+        [data-theme="light"] textarea,
+        [data-theme="light"] button[role="combobox"],
+        [data-theme="light"] [data-radix-popper-content-wrapper] {
+          background-color: white !important;
+          color: #111827 !important;
+          border-color: #d1d5db !important;
+        }
+        [data-theme="light"] [data-radix-select-content],
+        [data-theme="light"] [data-radix-select-viewport] {
+          background-color: white !important;
+          color: #111827 !important;
+        }
+        [data-theme="light"] [data-radix-select-item] {
+          color: #111827 !important;
+        }
+        [data-theme="light"] [data-radix-select-item]:hover,
+        [data-theme="light"] [data-radix-select-item][data-highlighted] {
+          background-color: #f3f4f6 !important;
+        }
+      `}</style>
       <div className="max-w-3xl mx-auto space-y-0">
 
         {/* ── Header — matches original exactly ─────────────────────────── */}
