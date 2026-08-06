@@ -31,6 +31,8 @@ export default function DocumentLinkInput({
   const handleFileChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    e.preventDefault()
+    e.stopPropagation()
     setUploading(true)
     try {
       const fd = new FormData()
@@ -39,10 +41,15 @@ export default function DocumentLinkInput({
       if (result.success && result.url) {
         onChange(result.url)
         toast.success('File uploaded successfully')
-        setMode('link') // switch back to link mode showing the URL
+        setMode('link')
       }
     } catch (err) {
-      toast.error(getApiError(err) || 'Upload failed — try using a URL link instead')
+      const msg = getApiError(err)
+      if (err?.response?.status === 401) {
+        toast.error('Session expired — please log in again')
+      } else {
+        toast.error(msg || 'Upload failed — try using a URL link instead')
+      }
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''
@@ -132,7 +139,10 @@ export default function DocumentLinkInput({
               </button>
             </div>
           ) : (
-            <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-5 cursor-pointer hover:border-nova-green transition-colors bg-gray-50 dark:bg-gray-800/30">
+            <label
+              className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-xl p-5 cursor-pointer hover:border-nova-green transition-colors bg-gray-50 dark:bg-gray-800/30"
+              onClick={(e) => e.stopPropagation()}
+            >
               {uploading ? (
                 <><Loader2 size={22} className="animate-spin text-nova-green" />
                   <p className="text-xs text-gray-500">Uploading…</p></>
