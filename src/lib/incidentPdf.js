@@ -14,7 +14,8 @@ export async function downloadIncidentPdf(incident) {
 
   // ── Colours (matching original) ────────────────────────────────────────────
   const NAVY    = [10, 22, 40]
-  const TEAL    = [0, 196, 204]    // #00c4cc — section headers and title bar
+  const TEAL    = [65, 105, 225]   // Royal Blue #4169E1 — sections and title bar
+  const RED     = [220, 38, 38]    // #dc2626 — Incident Ref
   const BLACK   = [30, 30, 30]
   const LGRAY   = [240, 240, 240]
   const MGRAY   = [200, 200, 200]
@@ -183,10 +184,10 @@ export async function downloadIncidentPdf(incident) {
   doc.setFontSize(14)
   doc.setTextColor(...BLACK)
   doc.text('SECURITY SERVICES', PW - MARGIN, y + 5, { align: 'right' })
-  // TEAL ref
+  // Red incident ref
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
-  doc.setTextColor(...TEAL)
+  doc.setTextColor(...RED)
   doc.text(`Incident Ref  |  ${incident.incident_ref || '—'}`, PW - MARGIN, y + 12, { align: 'right' })
   // Submitted date
   doc.setFont('helvetica', 'normal')

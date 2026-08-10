@@ -38,8 +38,8 @@ const blank = {
 // Section header styled like the original
 function SectionHeader({ num, title }) {
   return (
-    <div className="flex items-center gap-2 pb-2 mb-4" style={{ borderBottom: '2px solid #00c4cc' }}>
-      <h3 className="font-bold text-base" style={{ color: '#00c4cc' }}>{`Section ${num} : ${title}`}</h3>
+    <div className="flex items-center gap-2 pb-2 mb-4" style={{ borderBottom: '2px solid #4169E1', fontFamily: "'Montserrat', sans-serif" }}>
+      <h3 className="font-bold text-base" style={{ color: '#4169E1' }}>{`Section ${num} : ${title}`}</h3>
     </div>
   )
 }
@@ -136,9 +136,11 @@ export default function ReportIncident() {
   }
 
   return (
-    <div className="min-h-screen bg-white py-6 px-4" data-theme="light" style={{ colorScheme: 'light' }}>
-      {/* Force all form controls to light mode on this public page */}
+    <div className="min-h-screen bg-white py-6 px-4" data-theme="light" style={{ colorScheme: 'light', fontFamily: "'Montserrat', sans-serif" }}>
+      {/* Load Montserrat from Google Fonts + force light mode */}
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+        [data-theme="light"] * { font-family: 'Montserrat', sans-serif !important; }
         [data-theme="light"] select,
         [data-theme="light"] input,
         [data-theme="light"] textarea,
@@ -153,9 +155,7 @@ export default function ReportIncident() {
           background-color: white !important;
           color: #111827 !important;
         }
-        [data-theme="light"] [data-radix-select-item] {
-          color: #111827 !important;
-        }
+        [data-theme="light"] [data-radix-select-item] { color: #111827 !important; }
         [data-theme="light"] [data-radix-select-item]:hover,
         [data-theme="light"] [data-radix-select-item][data-highlighted] {
           background-color: #f3f4f6 !important;
@@ -183,14 +183,14 @@ export default function ReportIncident() {
                 {regionLabel} Region
               </span>
             )}
-            <p className="font-bold text-base text-orange-600 mt-0.5">Incident Ref | —</p>            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="font-bold text-base mt-0.5" style={{ color: '#dc2626' }}>Incident Ref | —</p>            <p className="text-xs text-gray-500 mt-0.5">
               Report Submitted on : {new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'2-digit' }).replace(/ /g,'-')} {new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', hour12:true }).toUpperCase()}
             </p>
           </div>
         </div>
 
         {/* ── Title bar ─────────────────────────────────────────────────────── */}
-        <div className="text-white text-center font-bold text-lg py-3 mb-6 rounded-sm" style={{ backgroundColor: '#00c4cc' }}>
+        <div className="text-white text-center font-bold text-lg py-3 mb-6 rounded-sm" style={{ backgroundColor: '#4169E1', fontFamily: "'Montserrat', sans-serif" }}>
           INCIDENT NOTIFICATION REPORT
         </div>
 
