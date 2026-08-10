@@ -97,7 +97,16 @@ export default function Users() {
       } else {
         // Invite flow — user will receive email to set their own password
         const data = await inviteUser(form)
-        toast.success(`Invitation sent to ${form.email}`)
+        if (data.inviteUrl) {
+          // Email failed — show the link so admin can share manually
+          toast.warning(`User created but email failed. Copy this link and share it manually:`)
+          setTimeout(() => {
+            navigator.clipboard?.writeText(data.inviteUrl)
+            toast.info('Invite link copied to clipboard')
+          }, 500)
+        } else {
+          toast.success(`Invitation sent to ${form.email}`)
+        }
         setUsers((p) => [data.user, ...p])
       }
       setDialogOpen(false)
