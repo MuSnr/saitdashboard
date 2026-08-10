@@ -14,7 +14,7 @@ export async function downloadIncidentPdf(incident) {
 
   // ── Colours (matching original) ────────────────────────────────────────────
   const NAVY    = [10, 22, 40]
-  const ORANGE  = [230, 90, 20]    // section header colour
+  const TEAL    = [0, 196, 204]    // #00c4cc — section headers and title bar
   const BLACK   = [30, 30, 30]
   const LGRAY   = [240, 240, 240]
   const MGRAY   = [200, 200, 200]
@@ -53,16 +53,16 @@ export async function downloadIncidentPdf(incident) {
     doc.text(`${pg} of ${tot} / Incident No.  ${incident.incident_ref || ''}`, PW - MARGIN, 292, { align: 'right' })
   }
 
-  // ── Section header (orange bold underline style) ────────────────────────────
+  // ── Section header (TEAL bold underline style) ────────────────────────────
   const sectionHeader = (title) => {
     checkY(14)
     y += 4
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10.5)
-    doc.setTextColor(...ORANGE)
+    doc.setTextColor(...TEAL)
     doc.text(title, MARGIN, y)
     y += 1.5
-    doc.setDrawColor(...ORANGE)
+    doc.setDrawColor(...TEAL)
     doc.setLineWidth(0.4)
     doc.line(MARGIN, y, MARGIN + CW, y)
     doc.setLineWidth(0.2)
@@ -183,10 +183,10 @@ export async function downloadIncidentPdf(incident) {
   doc.setFontSize(14)
   doc.setTextColor(...BLACK)
   doc.text('SECURITY SERVICES', PW - MARGIN, y + 5, { align: 'right' })
-  // Orange ref
+  // TEAL ref
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
-  doc.setTextColor(...ORANGE)
+  doc.setTextColor(...TEAL)
   doc.text(`Incident Ref  |  ${incident.incident_ref || '—'}`, PW - MARGIN, y + 12, { align: 'right' })
   // Submitted date
   doc.setFont('helvetica', 'normal')
@@ -197,7 +197,7 @@ export async function downloadIncidentPdf(incident) {
   y += 26
 
   // ── Title bar ───────────────────────────────────────────────────────────────
-  doc.setFillColor(60, 60, 100)
+  doc.setFillColor(...TEAL)
   doc.rect(MARGIN, y, CW, 10, 'F')
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)

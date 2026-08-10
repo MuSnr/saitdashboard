@@ -35,11 +35,11 @@ const blank = {
   notifications_list:'',
 }
 
-// Section header styled like the original (orange bold)
+// Section header styled like the original
 function SectionHeader({ num, title }) {
   return (
-    <div className="flex items-center gap-2 pb-2 border-b-2 border-orange-500 mb-4">
-      <h3 className="font-bold text-orange-600 text-base">{`Section ${num} : ${title}`}</h3>
+    <div className="flex items-center gap-2 pb-2 mb-4" style={{ borderBottom: '2px solid #00c4cc' }}>
+      <h3 className="font-bold text-base" style={{ color: '#00c4cc' }}>{`Section ${num} : ${title}`}</h3>
     </div>
   )
 }
@@ -167,7 +167,11 @@ export default function ReportIncident() {
         <div className="flex items-start justify-between mb-6 pb-4 border-b border-gray-200">
           {/* Logo left — Nova Pioneer official logo */}
           <div className="flex items-center">
-            <img src="/nova-pioneer-logo.png" alt="Nova Pioneer" className="h-16 w-auto" />
+            <img
+              src="/nova-pioneer-logo.png"
+              alt="Nova Pioneer"
+              style={{ height: '60px', width: 'auto', objectFit: 'contain' }}
+            />
           </div>
           {/* Right header */}
           <div className="text-right">
@@ -186,7 +190,7 @@ export default function ReportIncident() {
         </div>
 
         {/* ── Title bar ─────────────────────────────────────────────────────── */}
-        <div className="bg-[#3C3C64] text-white text-center font-bold text-lg py-3 mb-6 rounded-sm">
+        <div className="text-white text-center font-bold text-lg py-3 mb-6 rounded-sm" style={{ backgroundColor: '#00c4cc' }}>
           INCIDENT NOTIFICATION REPORT
         </div>
 
