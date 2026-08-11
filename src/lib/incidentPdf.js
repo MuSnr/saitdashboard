@@ -15,7 +15,7 @@ export async function downloadIncidentPdf(incident) {
   // ── Colours — matched to original PDF ──────────────────────────────────────
   const NAVY      = [10, 22, 40]
   const TITLE_BAR = [61, 63, 143]    // #3D3F8F — dark indigo/purple title bar
-  const DARK_BLUE = [30, 58, 95]     // #1e3a5f — section header text
+  const DARK_BLUE = [37, 99, 235]     // #2563EB — royal/sky blue section headers
   const DARK_GREY = [107, 114, 128]  // #6b7280 — section underlines
   const RED       = [220, 38, 38]    // #dc2626 — Incident Ref
   const BLACK     = [30, 30, 30]

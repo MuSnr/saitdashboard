@@ -39,7 +39,7 @@ const blank = {
 function SectionHeader({ num, title }) {
   return (
     <div className="flex items-center gap-2 pb-2 mb-4" style={{ borderBottom: '2px solid #6b7280', fontFamily: "'Montserrat', sans-serif" }}>
-      <h3 className="font-bold text-base" style={{ color: '#1e3a5f' }}>{`Section ${num} : ${title}`}</h3>
+      <h3 className="font-bold text-base" style={{ color: '#2563EB' }}>{`Section ${num} : ${title}`}</h3>
     </div>
   )
 }
