@@ -4,17 +4,23 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib'
  * Load an original insurer PDF from a URL, stamp filled field values
  * and an optional signature image onto it, return as a downloadable blob.
  *
- * @param {string}   pdfUrl      - Cloudinary URL of the original PDF
+ * @param {string}   pdfUrl      - Cloudinary URL OR proxy URL of the original PDF
+ * @param {string}   templateId  - template _id (used to fetch via proxy with auth)
  * @param {Array}    fieldMap    - [{ key, page, x, y, fontSize, fontStyle, maxWidth }]
  * @param {Object}   values      - { key: 'filled value', … }
  * @param {Object}   sigField    - { page, x, y, width, height }
  * @param {string}   sigDataUrl  - base64 PNG of signature (optional)
  * @returns {Blob}               - filled PDF blob
  */
-export async function stampPdf({ pdfUrl, fieldMap, values, sigField, sigDataUrl }) {
-  // Fetch original PDF bytes via proxy to avoid CORS issues
-  const pdfRes  = await fetch(pdfUrl)
-  const pdfBytes = await pdfRes.arrayBuffer()
+export async function stampPdf({ pdfUrl, templateId, fieldMap, values, sigField, sigDataUrl }) {
+  // Fetch via proxy with auth token to avoid Cloudinary 401
+  const token    = localStorage.getItem('sait-token')
+  const fetchUrl = templateId
+    ? `${import.meta.env.VITE_API_URL || '/api'}/claim-templates/${templateId}/pdf`
+    : pdfUrl
+  const pdfRes   = await fetch(fetchUrl, token ? { headers: { Authorization: `Bearer ${token}` } } : {})
+  if (!pdfRes.ok) throw new Error(`Could not fetch PDF: HTTP ${pdfRes.status}`)
+  const pdfBytes  = await pdfRes.arrayBuffer()
 
   const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true })
   const pages  = pdfDoc.getPages()

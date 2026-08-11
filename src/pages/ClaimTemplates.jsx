@@ -124,14 +124,14 @@ export default function ClaimTemplates() {
     setSigField(tpl.signatureField || { page:1, x:15, y:240, width:60, height:20 })
     setMapperPage(1)
     setActiveKey(null)
-    // Load PDF as image using PDF.js (browser built-in via pdf.js CDN)
-    renderPdfPage(tpl.cloudinaryUrl, 1)
+    // Use proxy URL so auth token is sent — avoids Cloudinary 401
+    const proxyUrl = `${import.meta.env.VITE_API_URL || '/api'}/claim-templates/${tpl._id}/pdf`
+    renderPdfPage(proxyUrl, 1)
     setMapperOpen(true)
   }
 
   const renderPdfPage = async (url, pageNum) => {
     try {
-      // Use pdf.js from CDN to render page as canvas image
       if (!window.pdfjsLib) {
         await new Promise((resolve, reject) => {
           const s = document.createElement('script')
@@ -142,8 +142,15 @@ export default function ClaimTemplates() {
         window.pdfjsLib.GlobalWorkerOptions.workerSrc =
           'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
       }
-      const pdf  = await window.pdfjsLib.getDocument(url).promise
-      const page = await pdf.getPage(pageNum)
+
+      // Fetch PDF bytes ourselves with auth token, pass ArrayBuffer to pdf.js
+      const token = localStorage.getItem('sait-token')
+      const res   = await fetch(url, token ? { headers: { Authorization: `Bearer ${token}` } } : {})
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const buffer = await res.arrayBuffer()
+
+      const pdf      = await window.pdfjsLib.getDocument({ data: buffer }).promise
+      const page     = await pdf.getPage(pageNum)
       const scale    = 1.5
       const viewport = page.getViewport({ scale })
       const canvas   = document.createElement('canvas')

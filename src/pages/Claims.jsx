@@ -321,6 +321,7 @@ export default function Claims() {
       const sig = useSavedSig ? savedSig : packData.signature_data_url
       const blob = await stampPdf({
         pdfUrl:    selectedTemplate.cloudinaryUrl,
+        templateId: selectedTemplate._id,
         fieldMap:  selectedTemplate.fieldMap,
         values:    { ...packData },
         sigField:  selectedTemplate.signatureField,
