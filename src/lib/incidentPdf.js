@@ -14,8 +14,10 @@ export async function downloadIncidentPdf(incident) {
 
   // ── Colours — matched to original PDF ──────────────────────────────────────
   const NAVY      = [10, 22, 40]
-  const TITLE_BAR = [61, 63, 143]   // #3D3F8F — dark indigo/purple title bar
-  const ORANGE    = [232, 80, 10]   // #E8500A — section headers, underlines, incident ref
+  const TITLE_BAR = [61, 63, 143]    // #3D3F8F — dark indigo/purple title bar
+  const DARK_BLUE = [30, 58, 95]     // #1e3a5f — section header text
+  const DARK_GREY = [107, 114, 128]  // #6b7280 — section underlines
+  const RED       = [220, 38, 38]    // #dc2626 — Incident Ref
   const BLACK     = [30, 30, 30]
   const WHITE     = [255, 255, 255]
   const LGRAY     = [240, 240, 240]
@@ -53,16 +55,16 @@ export async function downloadIncidentPdf(incident) {
     doc.text(`${pg} of ${tot} / Incident No.  ${incident.incident_ref || ''}`, PW - MARGIN, 292, { align: 'right' })
   }
 
-  // ── Section header (indigo bold + orange underline) ───────────────────────
+  // ── Section header (dark blue text + dark grey underline) ────────────────
   const sectionHeader = (title) => {
     checkY(14)
     y += 4
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10.5)
-    doc.setTextColor(...ORANGE)
+    doc.setTextColor(...DARK_BLUE)
     doc.text(title, MARGIN, y)
     y += 1.5
-    doc.setDrawColor(...ORANGE)
+    doc.setDrawColor(...DARK_GREY)
     doc.setLineWidth(0.4)
     doc.line(MARGIN, y, MARGIN + CW, y)
     doc.setLineWidth(0.2)
@@ -191,7 +193,7 @@ export async function downloadIncidentPdf(incident) {
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
-  doc.setTextColor(...ORANGE)
+  doc.setTextColor(...RED)
   doc.text(`Incident Ref  |  ${incident.incident_ref || '—'}`, PW - MARGIN, y + 13, { align: 'right' })
 
   doc.setFont('helvetica', 'normal')

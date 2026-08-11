@@ -38,8 +38,8 @@ const blank = {
 // Section header styled like the original
 function SectionHeader({ num, title }) {
   return (
-    <div className="flex items-center gap-2 pb-2 mb-4" style={{ borderBottom: '2px solid #E8500A', fontFamily: "'Montserrat', sans-serif" }}>
-      <h3 className="font-bold text-base" style={{ color: '#E8500A' }}>{`Section ${num} : ${title}`}</h3>
+    <div className="flex items-center gap-2 pb-2 mb-4" style={{ borderBottom: '2px solid #6b7280', fontFamily: "'Montserrat', sans-serif" }}>
+      <h3 className="font-bold text-base" style={{ color: '#1e3a5f' }}>{`Section ${num} : ${title}`}</h3>
     </div>
   )
 }
@@ -183,7 +183,7 @@ export default function ReportIncident() {
                 {regionLabel} Region
               </span>
             )}
-            <p className="font-bold text-base mt-0.5" style={{ color: '#E8500A' }}>Incident Ref | —</p>            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="font-bold text-base mt-0.5" style={{ color: '#dc2626' }}>Incident Ref | —</p>            <p className="text-xs text-gray-500 mt-0.5">
               Report Submitted on : {new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'2-digit' }).replace(/ /g,'-')} {new Date().toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', hour12:true }).toUpperCase()}
             </p>
           </div>
