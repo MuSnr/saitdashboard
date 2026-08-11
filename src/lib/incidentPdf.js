@@ -1,11 +1,43 @@
 import { jsPDF } from 'jspdf'
 
+// ── Load and register a font from a URL, return base64 string ──────────────
+async function fetchFontBase64(url) {
+  const res    = await fetch(url)
+  const buffer = await res.arrayBuffer()
+  const bytes  = new Uint8Array(buffer)
+  let binary   = ''
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  return btoa(binary)
+}
+
 /**
  * Generate Nova Pioneer branded Incident Notification Report PDF
- * Matches the original Google Form output exactly.
+ * Uses Montserrat font (fetched from Google Fonts at generation time).
  */
 export async function downloadIncidentPdf(incident) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+
+  // ── Register Montserrat Regular + Bold ──────────────────────────────────────
+  // Using direct TTF URLs from fonts.gstatic.com (stable, no API key needed)
+  const FONT_REGULAR_URL = 'https://fonts.gstatic.com/s/montserrat/v26/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCtr6Hw5aXo.woff2'
+  const FONT_BOLD_URL    = 'https://fonts.gstatic.com/s/montserrat/v26/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCu170w5aXo.woff2'
+
+  try {
+    const [regularB64, boldB64] = await Promise.all([
+      fetchFontBase64(FONT_REGULAR_URL),
+      fetchFontBase64(FONT_BOLD_URL),
+    ])
+    doc.addFileToVFS('Montserrat-Regular.woff2', regularB64)
+    doc.addFileToVFS('Montserrat-Bold.woff2',    boldB64)
+    doc.addFont('Montserrat-Regular.woff2', 'Montserrat', 'normal')
+    doc.addFont('Montserrat-Bold.woff2',    'Montserrat', 'bold')
+  } catch {
+    // Fallback to helvetica if font fetch fails (offline / CORS)
+    console.warn('Montserrat font fetch failed — falling back to Helvetica')
+  }
+
+  // Helper: use Montserrat if registered, otherwise helvetica
+  const FONT = 'Montserrat'
 
   const PW     = 210
   const MARGIN = 18
@@ -48,7 +80,7 @@ export async function downloadIncidentPdf(incident) {
     doc.setDrawColor(...MGRAY)
     doc.setLineWidth(0.2)
     doc.line(MARGIN, 287, PW - MARGIN, 287)
-    doc.setFont('helvetica', 'normal')
+    doc.setFont(FONT, 'normal')
     doc.setFontSize(8)
     doc.setTextColor(...DGRAY)
     doc.text(fmtDate(incident.createdAt || new Date()), MARGIN, 292)
@@ -59,7 +91,7 @@ export async function downloadIncidentPdf(incident) {
   const sectionHeader = (title) => {
     checkY(14)
     y += 4
-    doc.setFont('helvetica', 'bold')
+    doc.setFont(FONT, 'bold')
     doc.setFontSize(10.5)
     doc.setTextColor(...DARK_BLUE)
     doc.text(title, MARGIN, y)
@@ -86,12 +118,12 @@ export async function downloadIncidentPdf(incident) {
     const lines = doc.splitTextToSize(text, CW)
     const needed = 7 + lines.length * 5 + 3
     checkY(needed)
-    doc.setFont('helvetica', 'bold')
+    doc.setFont(FONT, 'bold')
     doc.setFontSize(9)
     doc.setTextColor(...BLACK)
     const labelLines = doc.splitTextToSize(label, CW)
     labelLines.forEach((l) => { doc.text(l, MARGIN, y); y += 5 })
-    doc.setFont('helvetica', 'normal')
+    doc.setFont(FONT, 'normal')
     doc.setFontSize(9)
     lines.forEach((line) => { doc.text(line, MARGIN, y); y += 5 })
     y += 3
@@ -109,12 +141,12 @@ export async function downloadIncidentPdf(incident) {
       doc.setFillColor(...WHITE)
       doc.rect(x, y, colW, ROW_H, 'S')
       // label — small grey bold
-      doc.setFont('helvetica', 'bold')
+      doc.setFont(FONT, 'bold')
       doc.setFontSize(7.5)
       doc.setTextColor(...DGRAY)
       doc.text(label, x + 2.5, y + 5.5)
       // value — normal black
-      doc.setFont('helvetica', 'normal')
+      doc.setFont(FONT, 'normal')
       doc.setFontSize(9)
       doc.setTextColor(...BLACK)
       const vLines = doc.splitTextToSize(String(value || '—'), colW - 5)
@@ -138,21 +170,21 @@ export async function downloadIncidentPdf(incident) {
 
     // left cell
     doc.rect(MARGIN, y, colW, H, 'S')
-    doc.setFont('helvetica', 'bold')
+    doc.setFont(FONT, 'bold')
     doc.setFontSize(8)
     doc.setTextColor(...BLACK)
     doc.text(left.label, MARGIN + 2.5, y + 5.5)
-    doc.setFont('helvetica', 'normal')
+    doc.setFont(FONT, 'normal')
     doc.setFontSize(9)
     lLines.forEach((l, i) => doc.text(l, MARGIN + 2.5, y + 12 + i * 5))
 
     // right cell
     doc.rect(MARGIN + colW, y, colW, H, 'S')
-    doc.setFont('helvetica', 'bold')
+    doc.setFont(FONT, 'bold')
     doc.setFontSize(8)
     doc.setTextColor(...BLACK)
     doc.text(right.label, MARGIN + colW + 2.5, y + 5.5)
-    doc.setFont('helvetica', 'normal')
+    doc.setFont(FONT, 'normal')
     doc.setFontSize(9)
     rLines.forEach((l, i) => doc.text(l, MARGIN + colW + 2.5, y + 12 + i * 5))
 
@@ -176,27 +208,27 @@ export async function downloadIncidentPdf(incident) {
     // Draw contained in a 55×20 box so the shape is preserved
     doc.addImage(dataUrl, 'PNG', MARGIN, y, 55, 20, undefined, 'FAST')
   } catch {
-    doc.setFont('helvetica', 'bold')
+    doc.setFont(FONT, 'bold')
     doc.setFontSize(11)
     doc.setTextColor(...NAVY)
     doc.text('NOVA PIONEER', MARGIN, y + 8)
-    doc.setFont('helvetica', 'normal')
+    doc.setFont(FONT, 'normal')
     doc.setFontSize(7)
     doc.text('SCHOOLS FOR INNOVATORS & LEADERS', MARGIN, y + 14)
   }
 
   // Right side header
-  doc.setFont('helvetica', 'bold')
+  doc.setFont(FONT, 'bold')
   doc.setFontSize(14)
   doc.setTextColor(...BLACK)
   doc.text('SECURITY SERVICES', PW - MARGIN, y + 6, { align: 'right' })
 
-  doc.setFont('helvetica', 'bold')
+  doc.setFont(FONT, 'bold')
   doc.setFontSize(11)
   doc.setTextColor(...RED)
   doc.text(`Incident Ref  |  ${incident.incident_ref || '—'}`, PW - MARGIN, y + 13, { align: 'right' })
 
-  doc.setFont('helvetica', 'normal')
+  doc.setFont(FONT, 'normal')
   doc.setFontSize(8)
   doc.setTextColor(...DGRAY)
   doc.text(`Report Submitted on : ${fmtDate(incident.createdAt || new Date())}`, PW - MARGIN, y + 19, { align: 'right' })
@@ -206,7 +238,7 @@ export async function downloadIncidentPdf(incident) {
   // ── Title bar ───────────────────────────────────────────────────────────────
   doc.setFillColor(...TITLE_BAR)
   doc.rect(MARGIN, y, CW, 11, 'F')
-  doc.setFont('helvetica', 'bold')
+  doc.setFont(FONT, 'bold')
   doc.setFontSize(12)
   doc.setTextColor(...WHITE)
   doc.text('INCIDENT NOTIFICATION REPORT', PW / 2, y + 7.5, { align: 'center' })
@@ -286,7 +318,7 @@ export async function downloadIncidentPdf(incident) {
   // ════════════════════════════════════════════════════════════════════════════
   sectionHeader('Section 7 : Notifications')
   checkY(8)
-  doc.setFont('helvetica', 'normal')
+  doc.setFont(FONT, 'normal')
   doc.setFontSize(9)
   doc.setTextColor(...BLACK)
   doc.text('This report was notified to the following people.', MARGIN, y)
@@ -301,7 +333,7 @@ export async function downloadIncidentPdf(incident) {
   const rows = notifs.length > 0 ? notifs : ['', '', '']   // always show at least 3 rows
   rows.forEach((n, i) => {
     checkY(6)
-    doc.setFont('helvetica', 'normal')
+    doc.setFont(FONT, 'normal')
     doc.setFontSize(9)
     doc.setTextColor(...BLACK)
     doc.text(`${notifLabels[i] || `${i + 1})`}${n ? '  ' + n : ''}`, MARGIN, y)
