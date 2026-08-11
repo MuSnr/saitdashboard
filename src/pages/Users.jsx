@@ -11,7 +11,7 @@ import { toast } from 'sonner'
 import { fetchUsers, createUser, inviteUser, updateUser, deleteUser, approveUser, getApiError } from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
 import { useCampuses } from '@/context/CampusContext'
-import { QRCodeSVG } from 'qrcode.react'
+import QRCode from 'react-qr-code'
 
 const roleVariant = { admin: 'default', campus_manager: 'info', viewer: 'secondary' }
 const roleLabel = { super_admin: 'Super Admin', admin: 'Admin', campus_manager: 'Campus Manager', viewer: 'Viewer' }
@@ -455,12 +455,12 @@ export default function Users() {
               {inviteResult.url && (
                 <div className="flex flex-col items-center gap-3 p-4 bg-white border border-gray-200 rounded-xl">
                   <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Scan to set password</p>
-                  <QRCodeSVG
+                  <QRCode
                     value={inviteResult.url}
                     size={180}
                     level="M"
-                    includeMargin={true}
                     fgColor="#0A1628"
+                    style={{ height: 180, width: 180 }}
                   />
                   <p className="text-[10px] text-gray-400">Valid for 7 days</p>
                 </div>
