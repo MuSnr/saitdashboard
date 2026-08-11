@@ -1,43 +1,46 @@
 import { jsPDF } from 'jspdf'
 
-// ── Load and register a font from a URL, return base64 string ──────────────
+// ── Load a font file as base64 string ──────────────────────────────────────
 async function fetchFontBase64(url) {
   const res    = await fetch(url)
   const buffer = await res.arrayBuffer()
+  // Use TextDecoder-free method safe for binary data
   const bytes  = new Uint8Array(buffer)
   let binary   = ''
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  const CHUNK  = 8192
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK))
+  }
   return btoa(binary)
 }
 
 /**
  * Generate Nova Pioneer branded Incident Notification Report PDF
- * Uses Montserrat font (fetched from Google Fonts at generation time).
+ * Uses Montserrat font (TTF fetched from CDN at generation time).
  */
 export async function downloadIncidentPdf(incident) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
 
-  // ── Register Montserrat Regular + Bold ──────────────────────────────────────
-  // Using direct TTF URLs from fonts.gstatic.com (stable, no API key needed)
-  const FONT_REGULAR_URL = 'https://fonts.gstatic.com/s/montserrat/v26/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCtr6Hw5aXo.woff2'
-  const FONT_BOLD_URL    = 'https://fonts.gstatic.com/s/montserrat/v26/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCu170w5aXo.woff2'
+  // ── Register Montserrat Regular + Bold (TTF — jsPDF requires TTF not woff2) ─
+  // CDN-hosted TTF files — reliable, no API key needed
+  const TTF_REGULAR_URL = 'https://cdn.jsdelivr.net/gh/JulietaUla/Montserrat@master/fonts/ttf/Montserrat-Regular.ttf'
+  const TTF_BOLD_URL    = 'https://cdn.jsdelivr.net/gh/JulietaUla/Montserrat@master/fonts/ttf/Montserrat-Bold.ttf'
+
+  let FONT = 'helvetica'   // default — replaced if Montserrat loads successfully
 
   try {
     const [regularB64, boldB64] = await Promise.all([
-      fetchFontBase64(FONT_REGULAR_URL),
-      fetchFontBase64(FONT_BOLD_URL),
+      fetchFontBase64(TTF_REGULAR_URL),
+      fetchFontBase64(TTF_BOLD_URL),
     ])
-    doc.addFileToVFS('Montserrat-Regular.woff2', regularB64)
-    doc.addFileToVFS('Montserrat-Bold.woff2',    boldB64)
-    doc.addFont('Montserrat-Regular.woff2', 'Montserrat', 'normal')
-    doc.addFont('Montserrat-Bold.woff2',    'Montserrat', 'bold')
-  } catch {
-    // Fallback to helvetica if font fetch fails (offline / CORS)
-    console.warn('Montserrat font fetch failed — falling back to Helvetica')
+    doc.addFileToVFS('Montserrat-Regular.ttf', regularB64)
+    doc.addFileToVFS('Montserrat-Bold.ttf',    boldB64)
+    doc.addFont('Montserrat-Regular.ttf', 'Montserrat', 'normal')
+    doc.addFont('Montserrat-Bold.ttf',    'Montserrat', 'bold')
+    FONT = 'Montserrat'
+  } catch (err) {
+    console.warn('Montserrat font load failed, using Helvetica:', err.message)
   }
-
-  // Helper: use Montserrat if registered, otherwise helvetica
-  const FONT = 'Montserrat'
 
   const PW     = 210
   const MARGIN = 18
