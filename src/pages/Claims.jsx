@@ -4,10 +4,11 @@ import {
   FileSpreadsheet, Loader2, Filter, Edit2, RefreshCw, Link as LinkIcon,
   AlertCircle, PenLine,
 } from 'lucide-react'
-import { useState, useMemo, useEffect, useCallback } from 'react'
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import {
   fetchClaims, createClaim, updateClaim, deleteClaim,
   bulkImportClaims, downloadClaimsTemplate, getApiError,
+  fetchClaimTemplates, getSavedSignature, saveSignature,
 } from '@/services/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -22,11 +23,9 @@ import { toast } from 'sonner'
 import { useCampuses } from '@/context/CampusContext'
 import { useAuth } from '@/context/AuthContext'
 
-import { downloadClaimPackPdf } from '@/lib/claimPackPdf'
+import { stampPdf, downloadBlob } from '@/lib/stampPdf'
 
 const STATUSES = ['Internal WIP', 'Lodged', 'Paid Out', 'Rejected', 'Withdrawn', 'Below Minimum Excess']
-const KE_INSURERS = ['GA Insurance', 'Mayfair Insurance']
-const ZA_INSURERS = ['TWK']
 
 const statusColour = {
   'Internal WIP':         'bg-yellow-100 text-yellow-700',
@@ -72,13 +71,20 @@ export default function Claims() {
 
   // Claim Pack
   const [packOpen,    setPackOpen]    = useState(false)
-  const [packClaim,   setPackClaim]   = useState(null)   // the claim being packed
+  const [packClaim,   setPackClaim]   = useState(null)
   const [packInsurer, setPackInsurer] = useState('')
   const [packSaving,  setPackSaving]  = useState(false)
   const [packData,    setPackData]    = useState({})
   const [packItems,   setPackItems]   = useState([{ description:'', where_acquired:'', cost_price:'', depreciation:'', salvage:'', amount_claimed:'' }])
-  const [sigCanvas,   setSigCanvas]   = useState(null)   // ref to canvas element
+  const [sigCanvas,   setSigCanvas]   = useState(null)
   const [sigDrawing,  setSigDrawing]  = useState(false)
+  // Template system
+  const [claimTemplates, setClaimTemplates] = useState([])
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [savedSig,       setSavedSig]       = useState('')   // base64 from user profile
+  const [useSavedSig,    setUseSavedSig]    = useState(false)
+  const [generating,     setGenerating]     = useState(false)
+  const sigCanvasRef = useRef(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -186,10 +192,11 @@ export default function Claims() {
     catch (err) { toast.error(getApiError(err)) }
   }
 
-  const openPack = (claim) => {
+  const openPack = async (claim) => {
     setPackClaim(claim)
     const existing = claim.claim_pack || {}
     setPackInsurer(claim.insurer || '')
+    setSelectedTemplate(null)
     setPackData({
       policy_no: '', renewal_date: '', last_premium_date: '',
       insured_name: 'Nova Pioneer Schools', insured_address: '', insured_telephone: '',
@@ -197,21 +204,37 @@ export default function Claims() {
       location: claim.subsidiary || '', loss_date_time: '',
       loss_location: claim.subsidiary || '', loss_description: claim.description || '',
       premises_type: 'School Premises', premises_unoccupied: 'No', premises_self_contained: 'Yes',
-      owner_of_premises: 'Yes', responsible_repairs: 'Yes', suspicion_parties: '',
-      other_insurance: '', previous_loss: 'No',
+      owner_of_premises: 'Yes', responsible_repairs: 'Yes', suspicion_parties: 'N/A',
+      other_insurance: 'N/A', previous_loss: 'No',
       value_buildings: '', value_property: '',
       police_notified_date: '', police_station: '', recovery_steps: '',
-      entry_method: '', alarm_functional: '', guards_employed: '',
-      transit_route: '', transit_accompanying: '', transit_employee_details: '',
-      fidelity_guarantee: '', transit_frequency: '', transit_max_carried: '',
-      amount_claimed: '', identity_number: '', contact_number: '',
-      when_loss_discovered: '', alarm_activated: '', third_party_name: '',
-      other_party_interest: '', other_insurance_twk: '', total_value_insured: '',
+      entry_method: 'N/A', alarm_functional: 'N/A', guards_employed: 'N/A',
+      transit_route: 'N/A', transit_accompanying: 'N/A', transit_employee_details: 'N/A',
+      fidelity_guarantee: 'N/A', transit_frequency: 'N/A', transit_max_carried: 'N/A',
+      amount_claimed: String(claim.claimValue || ''), identity_number: '', contact_number: '',
+      when_loss_discovered: '', alarm_activated: 'N/A', third_party_name: 'N/A',
+      other_party_interest: 'N/A', other_insurance_twk: 'N/A', total_value_insured: '',
       last_valuated: '', signed_by: '', signed_date: new Date().toLocaleDateString('en-GB'),
       signature_data_url: '',
       ...existing,
     })
     setPackItems(existing.items?.length ? existing.items : [{ description:'', where_acquired:'', cost_price:'', depreciation:'', salvage:'', amount_claimed:'' }])
+    setUseSavedSig(false)
+
+    // Load templates and saved signature in parallel
+    const [templates, sig] = await Promise.all([
+      fetchClaimTemplates(),
+      getSavedSignature(),
+    ])
+    setClaimTemplates(templates)
+    setSavedSig(sig || '')
+
+    // Auto-select template matching saved insurer
+    if (claim.insurer && templates.length) {
+      const match = templates.find(t => t.insurer === claim.insurer)
+      if (match) setSelectedTemplate(match)
+    }
+
     setPackOpen(true)
   }
 
@@ -220,7 +243,7 @@ export default function Claims() {
   // Signature canvas helpers
   const startSig = (e) => {
     setSigDrawing(true)
-    const canvas = sigCanvas
+    const canvas = sigCanvasRef.current
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     const rect = canvas.getBoundingClientRect()
@@ -230,10 +253,10 @@ export default function Claims() {
     ctx.moveTo(cx, cy)
   }
   const drawSig = (e) => {
-    if (!sigDrawing || !sigCanvas) return
+    if (!sigDrawing || !sigCanvasRef.current) return
     e.preventDefault()
-    const ctx = sigCanvas.getContext('2d')
-    const rect = sigCanvas.getBoundingClientRect()
+    const ctx = sigCanvasRef.current.getContext('2d')
+    const rect = sigCanvasRef.current.getBoundingClientRect()
     const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
     const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
     ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#0A1628'
@@ -241,13 +264,36 @@ export default function Claims() {
   }
   const endSig = () => {
     setSigDrawing(false)
-    if (!sigCanvas) return
-    setPackData((d) => ({ ...d, signature_data_url: sigCanvas.toDataURL('image/png') }))
+    if (!sigCanvasRef.current) return
+    const dataUrl = sigCanvasRef.current.toDataURL('image/png')
+    setPackData((d) => ({ ...d, signature_data_url: dataUrl }))
+    setUseSavedSig(false)
   }
   const clearSig = () => {
-    if (!sigCanvas) return
-    sigCanvas.getContext('2d').clearRect(0, 0, sigCanvas.width, sigCanvas.height)
+    if (sigCanvasRef.current) sigCanvasRef.current.getContext('2d').clearRect(0, 0, sigCanvasRef.current.width, sigCanvasRef.current.height)
     setPackData((d) => ({ ...d, signature_data_url: '' }))
+    setUseSavedSig(false)
+  }
+  const loadSavedSig = () => {
+    setPackData((d) => ({ ...d, signature_data_url: savedSig }))
+    setUseSavedSig(true)
+    // Show saved sig on canvas
+    if (sigCanvasRef.current && savedSig) {
+      const ctx = sigCanvasRef.current.getContext('2d')
+      ctx.clearRect(0, 0, sigCanvasRef.current.width, sigCanvasRef.current.height)
+      const img = new Image()
+      img.onload = () => ctx.drawImage(img, 0, 0, sigCanvasRef.current.width, sigCanvasRef.current.height)
+      img.src = savedSig
+    }
+  }
+  const handleSaveSignatureToProfile = async () => {
+    const sig = packData.signature_data_url
+    if (!sig) { toast.error('Draw a signature first'); return }
+    try {
+      await saveSignature(sig)
+      setSavedSig(sig)
+      toast.success('Signature saved to your profile')
+    } catch (err) { toast.error(getApiError(err)) }
   }
 
   const handleSavePack = async () => {
@@ -264,9 +310,27 @@ export default function Claims() {
     finally { setPackSaving(false) }
   }
 
-  const handleDownloadPack = () => {
-    if (!packInsurer) { toast.error('Select an insurer first'); return }
-    downloadClaimPackPdf(packInsurer, { ...packData, items: packItems }, packClaim?.claimId)
+  const handleDownloadPack = async () => {
+    if (!selectedTemplate) { toast.error('Select an insurer template first'); return }
+    if (!selectedTemplate.fieldMap?.length) {
+      toast.error('This template has no field map yet. Go to Claim Form Templates to map the fields first.')
+      return
+    }
+    setGenerating(true)
+    try {
+      const sig = useSavedSig ? savedSig : packData.signature_data_url
+      const blob = await stampPdf({
+        pdfUrl:    selectedTemplate.cloudinaryUrl,
+        fieldMap:  selectedTemplate.fieldMap,
+        values:    { ...packData },
+        sigField:  selectedTemplate.signatureField,
+        sigDataUrl: sig || null,
+      })
+      downloadBlob(blob, `ClaimPack_${selectedTemplate.insurer.replace(/\s+/g,'_')}_${packClaim?.claimId}_${new Date().toISOString().slice(0,10)}.pdf`)
+      toast.success('Claim pack downloaded')
+    } catch (err) {
+      toast.error('PDF generation failed: ' + err.message)
+    } finally { setGenerating(false) }
   }
 
   const handleDownloadTemplate = async () => {
@@ -586,15 +650,34 @@ export default function Claims() {
             <div className="space-y-5 pt-2">
               {/* Insurer selector */}
               <div className="space-y-1.5">
-                <Label className="font-semibold">Select Insurer *</Label>
-                <Select value={packInsurer} onValueChange={setPackInsurer}>
-                  <SelectTrigger className="w-64"><SelectValue placeholder="Choose insurer" /></SelectTrigger>
-                  <SelectContent>
-                    {[...KE_INSURERS, ...ZA_INSURERS].map((i) => (
-                      <SelectItem key={i} value={i}>{i}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="font-semibold">Select Insurer Template *</Label>
+                {claimTemplates.length === 0 ? (
+                  <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                    No templates uploaded yet. Go to <strong>Claim Form Templates</strong> to upload insurer PDFs first.
+                  </div>
+                ) : (
+                  <Select value={selectedTemplate?._id || ''} onValueChange={(id) => {
+                    const tpl = claimTemplates.find(t => t._id === id)
+                    setSelectedTemplate(tpl || null)
+                    setPackInsurer(tpl?.insurer || '')
+                  }}>
+                    <SelectTrigger className="w-72"><SelectValue placeholder="Choose insurer template" /></SelectTrigger>
+                    <SelectContent>
+                      {claimTemplates.map((t) => (
+                        <SelectItem key={t._id} value={t._id}>
+                          {t.name} — {t.region}
+                          {t.fieldMap?.length > 0 ? '' : ' ⚠ (not mapped)'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {selectedTemplate && (
+                  <p className="text-[10px] text-gray-500 flex items-center gap-1">
+                    {selectedTemplate.fieldMap?.length || 0} fields mapped ·
+                    <a href={selectedTemplate.cloudinaryUrl} target="_blank" rel="noopener noreferrer" className="text-nova-teal hover:underline">View original PDF</a>
+                  </p>
+                )}
               </div>
 
               {packInsurer && (<>
@@ -693,23 +776,39 @@ export default function Claims() {
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <p className="text-sm font-bold text-nova-navy dark:text-white">Signature</p>
-                    <button type="button" onClick={clearSig} className="text-xs text-red-500 hover:underline">Clear</button>
+                    <div className="flex items-center gap-2">
+                      {savedSig && (
+                        <button type="button" onClick={loadSavedSig}
+                          className="text-xs text-nova-teal hover:underline flex items-center gap-1">
+                          ↩ Use saved signature
+                        </button>
+                      )}
+                      <button type="button" onClick={clearSig} className="text-xs text-red-500 hover:underline">Clear</button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">Draw your signature below:</p>
-                      <canvas ref={(el) => setSigCanvas(el)} width={300} height={100}
+                      <p className="text-xs text-gray-500 mb-1">Draw your signature:</p>
+                      <canvas ref={sigCanvasRef} width={300} height={100}
                         className="border-2 border-gray-300 rounded-lg bg-white cursor-crosshair touch-none w-full"
                         style={{ maxHeight: 100 }}
                         onMouseDown={startSig} onMouseMove={drawSig} onMouseUp={endSig} onMouseLeave={endSig}
                         onTouchStart={startSig} onTouchMove={drawSig} onTouchEnd={endSig} />
+                      {packData.signature_data_url && !useSavedSig && (
+                        <button type="button" onClick={handleSaveSignatureToProfile}
+                          className="text-[10px] text-nova-teal hover:underline mt-1">
+                          💾 Save to my profile for future use
+                        </button>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <div className="space-y-1"><Label className="text-xs">Signed by (Print Name)</Label><Input value={packData.signed_by||''} onChange={setP('signed_by')} className="h-8 text-sm" /></div>
                       <div className="space-y-1"><Label className="text-xs">Date</Label><Input value={packData.signed_date||''} onChange={setP('signed_date')} className="h-8 text-sm" /></div>
                     </div>
                   </div>
-                  {packData.signature_data_url && <p className="text-[10px] text-green-600">✓ Signature captured</p>}
+                  {packData.signature_data_url && (
+                    <p className="text-[10px] text-green-600">✓ Signature ready {useSavedSig ? '(from saved profile)' : '(newly drawn)'}</p>
+                  )}
                 </div>
               </>)}
             </div>
@@ -719,8 +818,8 @@ export default function Claims() {
               <Button type="button" variant="outline" onClick={handleSavePack} disabled={packSaving || !packInsurer}>
                 {packSaving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : 'Save Pack'}
               </Button>
-              <Button type="button" onClick={handleDownloadPack} disabled={!packInsurer} className="bg-purple-600 hover:bg-purple-700">
-                <Download size={14} className="mr-1" /> Download PDF
+              <Button type="button" onClick={handleDownloadPack} disabled={!selectedTemplate || generating} className="bg-purple-600 hover:bg-purple-700">
+                {generating ? <><Loader2 size={14} className="animate-spin mr-1" /> Generating…</> : <><Download size={14} className="mr-1" /> Download PDF</>}
               </Button>
             </DialogFooter>
           </DialogContent>

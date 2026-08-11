@@ -20,7 +20,7 @@ import Locations from '@/pages/Locations'
 import NotFound from '@/pages/NotFound'
 import Reconciliation from '@/pages/Reconciliation'
 import Incidents from '@/pages/Incidents'
-import ReportIncident from '@/pages/ReportIncident'
+import ClaimTemplates from '@/pages/ClaimTemplates'
 
 export default function App() {
   const { loading } = useAuth()
@@ -85,6 +85,10 @@ export default function App() {
       {/* /report-incident/ke → Kenya only, /report-incident/za → SA only */}
       <Route path="/report-incident" element={<ReportIncident />} />
       <Route path="/report-incident/:region" element={<ReportIncident />} />
+      <Route
+        path="/claim-templates"
+        element={<ProtectedRoute roles={['admin', 'super_admin']}><ClaimTemplates /></ProtectedRoute>}
+      />
 
       {/* ── Fallback ──────────────────────────────────────────── */}
       <Route path="*" element={<NotFound />} />

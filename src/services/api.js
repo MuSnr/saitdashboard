@@ -172,3 +172,21 @@ export const fetchLinkSuggestions = (assetId) =>
   api.get(`/reconciliation/suggestions/${assetId}`).then((r) => r.data?.suggestions || [])
 export const runAutoLink          = () =>
   api.post('/reconciliation/auto-link').then((r) => r.data)
+
+// ── Claim Templates ───────────────────────────────────────────────────────────
+export const fetchClaimTemplates  = (params) =>
+  api.get('/claim-templates', { params }).then((r) => r.data?.templates || []).catch(() => [])
+export const createClaimTemplate  = (formData) =>
+  api.post('/claim-templates', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }, timeout: 60000,
+  }).then((r) => r.data)
+export const updateClaimTemplate  = (id, data) =>
+  api.put(`/claim-templates/${id}`, data).then((r) => r.data)
+export const deleteClaimTemplate  = (id) =>
+  api.delete(`/claim-templates/${id}`).then((r) => r.data)
+
+// ── User Signature ─────────────────────────────────────────────────────────────
+export const getSavedSignature  = () =>
+  api.get('/users/signature').then((r) => r.data?.signature || '').catch(() => '')
+export const saveSignature      = (signature) =>
+  api.put('/users/signature', { signature }).then((r) => r.data)

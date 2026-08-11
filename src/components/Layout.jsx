@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   BarChart3, Plus, FileText, Users, Settings, Search,
   TrendingUp, Moon, Sun, LogOut, Shield, Bell, ChevronLeft,
-  MapPin, GitMerge, AlertCircle, Globe,
+  MapPin, GitMerge, AlertCircle, Globe, ClipboardList,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
@@ -27,7 +27,8 @@ const adminNavItems = [
 ]
 
 const adminOnlyNavItems = [
-  { label: 'Incidents',          icon: AlertCircle, href: '/incidents' },
+  { label: 'Incidents',           icon: AlertCircle,   href: '/incidents' },
+  { label: 'Claim Form Templates',icon: ClipboardList, href: '/claim-templates' },
 ]
 
 const bottomItems = [
