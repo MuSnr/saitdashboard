@@ -568,7 +568,7 @@ export default function Claims() {
           </form>
         </DialogContent>
       </Dialog>
-    </Layout>
+
       {/* ── Claim Pack Dialog ─────────────────────────────────────────────── */}
       {packOpen && packClaim && (
         <Dialog open={packOpen} onOpenChange={setPackOpen}>
