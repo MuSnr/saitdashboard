@@ -268,6 +268,7 @@ export default function ClaimTemplates() {
                     <Button size="sm" variant="outline" onClick={() => openEdit(t)}><Edit2 size={13} /></Button>
                     <Button size="sm" variant="outline" className="text-red-500 hover:bg-red-50" onClick={() => handleDelete(t._id)}><Trash2 size={13} /></Button>
                   </div>
+                  <p className="text-[10px] text-amber-600">⚠ If PDF fails to load, delete and re-upload this template.</p>
                 </CardContent>
               </Card>
             ))}
