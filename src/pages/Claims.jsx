@@ -2,7 +2,7 @@ import { Layout } from '@/components/Layout'
 import {
   Plus, Trash2, ExternalLink, FileText, Upload, File, X, Download,
   FileSpreadsheet, Loader2, Filter, Edit2, RefreshCw, Link as LinkIcon,
-  AlertCircle,
+  AlertCircle, PenLine,
 } from 'lucide-react'
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import {
@@ -22,7 +22,11 @@ import { toast } from 'sonner'
 import { useCampuses } from '@/context/CampusContext'
 import { useAuth } from '@/context/AuthContext'
 
+import { downloadClaimPackPdf } from '@/lib/claimPackPdf'
+
 const STATUSES = ['Internal WIP', 'Lodged', 'Paid Out', 'Rejected', 'Withdrawn', 'Below Minimum Excess']
+const KE_INSURERS = ['GA Insurance', 'Mayfair Insurance']
+const ZA_INSURERS = ['TWK']
 
 const statusColour = {
   'Internal WIP':         'bg-yellow-100 text-yellow-700',
@@ -65,6 +69,16 @@ export default function Claims() {
   const [bulkFile,      setBulkFile]      = useState(null)
   const [bulkUploading, setBulkUploading] = useState(false)
   const [bulkResult,    setBulkResult]    = useState(null)
+
+  // Claim Pack
+  const [packOpen,    setPackOpen]    = useState(false)
+  const [packClaim,   setPackClaim]   = useState(null)   // the claim being packed
+  const [packInsurer, setPackInsurer] = useState('')
+  const [packSaving,  setPackSaving]  = useState(false)
+  const [packData,    setPackData]    = useState({})
+  const [packItems,   setPackItems]   = useState([{ description:'', where_acquired:'', cost_price:'', depreciation:'', salvage:'', amount_claimed:'' }])
+  const [sigCanvas,   setSigCanvas]   = useState(null)   // ref to canvas element
+  const [sigDrawing,  setSigDrawing]  = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -170,6 +184,89 @@ export default function Claims() {
     if (!window.confirm('Delete this claim? This cannot be undone.')) return
     try { await deleteClaim(id); setClaims((p) => p.filter((c) => c._id !== id)); toast.success('Claim deleted') }
     catch (err) { toast.error(getApiError(err)) }
+  }
+
+  const openPack = (claim) => {
+    setPackClaim(claim)
+    const existing = claim.claim_pack || {}
+    setPackInsurer(claim.insurer || '')
+    setPackData({
+      policy_no: '', renewal_date: '', last_premium_date: '',
+      insured_name: 'Nova Pioneer Schools', insured_address: '', insured_telephone: '',
+      insured_email: '', insured_pin: '', business_occupation: 'School',
+      location: claim.subsidiary || '', loss_date_time: '',
+      loss_location: claim.subsidiary || '', loss_description: claim.description || '',
+      premises_type: 'School Premises', premises_unoccupied: 'No', premises_self_contained: 'Yes',
+      owner_of_premises: 'Yes', responsible_repairs: 'Yes', suspicion_parties: '',
+      other_insurance: '', previous_loss: 'No',
+      value_buildings: '', value_property: '',
+      police_notified_date: '', police_station: '', recovery_steps: '',
+      entry_method: '', alarm_functional: '', guards_employed: '',
+      transit_route: '', transit_accompanying: '', transit_employee_details: '',
+      fidelity_guarantee: '', transit_frequency: '', transit_max_carried: '',
+      amount_claimed: '', identity_number: '', contact_number: '',
+      when_loss_discovered: '', alarm_activated: '', third_party_name: '',
+      other_party_interest: '', other_insurance_twk: '', total_value_insured: '',
+      last_valuated: '', signed_by: '', signed_date: new Date().toLocaleDateString('en-GB'),
+      signature_data_url: '',
+      ...existing,
+    })
+    setPackItems(existing.items?.length ? existing.items : [{ description:'', where_acquired:'', cost_price:'', depreciation:'', salvage:'', amount_claimed:'' }])
+    setPackOpen(true)
+  }
+
+  const setP = (k) => (e) => setPackData((d) => ({ ...d, [k]: e.target.value }))
+
+  // Signature canvas helpers
+  const startSig = (e) => {
+    setSigDrawing(true)
+    const canvas = sigCanvas
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    const rect = canvas.getBoundingClientRect()
+    ctx.beginPath()
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+    ctx.moveTo(cx, cy)
+  }
+  const drawSig = (e) => {
+    if (!sigDrawing || !sigCanvas) return
+    e.preventDefault()
+    const ctx = sigCanvas.getContext('2d')
+    const rect = sigCanvas.getBoundingClientRect()
+    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left
+    const cy = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top
+    ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.strokeStyle = '#0A1628'
+    ctx.lineTo(cx, cy); ctx.stroke()
+  }
+  const endSig = () => {
+    setSigDrawing(false)
+    if (!sigCanvas) return
+    setPackData((d) => ({ ...d, signature_data_url: sigCanvas.toDataURL('image/png') }))
+  }
+  const clearSig = () => {
+    if (!sigCanvas) return
+    sigCanvas.getContext('2d').clearRect(0, 0, sigCanvas.width, sigCanvas.height)
+    setPackData((d) => ({ ...d, signature_data_url: '' }))
+  }
+
+  const handleSavePack = async () => {
+    if (!packInsurer) { toast.error('Select an insurer first'); return }
+    setPackSaving(true)
+    try {
+      const data = await updateClaim(packClaim._id, {
+        insurer: packInsurer,
+        claim_pack: { ...packData, items: packItems, pack_generated_at: new Date() },
+      })
+      setClaims((p) => p.map((c) => c._id === packClaim._id ? data.claim : c))
+      toast.success('Claim pack saved')
+    } catch (err) { toast.error(getApiError(err)) }
+    finally { setPackSaving(false) }
+  }
+
+  const handleDownloadPack = () => {
+    if (!packInsurer) { toast.error('Select an insurer first'); return }
+    downloadClaimPackPdf(packInsurer, { ...packData, items: packItems }, packClaim?.claimId)
   }
 
   const handleDownloadTemplate = async () => {
@@ -332,6 +429,7 @@ export default function Claims() {
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-1">
+                            <button onClick={() => openPack(c)} title="Claim Pack / Insurer Form" className="p-1.5 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"><PenLine size={13} /></button>
                             <button onClick={() => openEdit(c)} className="p-1.5 rounded-lg text-nova-teal hover:bg-nova-teal/10 transition-colors"><Edit2 size={13} /></button>
                             <button onClick={() => handleDelete(c._id)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={13} /></button>
                           </div>
@@ -470,6 +568,164 @@ export default function Claims() {
           </form>
         </DialogContent>
       </Dialog>
+    </Layout>
+      {/* ── Claim Pack Dialog ─────────────────────────────────────────────── */}
+      {packOpen && packClaim && (
+        <Dialog open={packOpen} onOpenChange={setPackOpen}>
+          <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <PenLine size={16} className="text-purple-600" />
+                Claim Pack — {packClaim.claimId}
+              </DialogTitle>
+              <DialogDescription>
+                Fill in the insurer form fields. Sign below, then download the pre-filled PDF to submit to the insurer.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-5 pt-2">
+              {/* Insurer selector */}
+              <div className="space-y-1.5">
+                <Label className="font-semibold">Select Insurer *</Label>
+                <Select value={packInsurer} onValueChange={setPackInsurer}>
+                  <SelectTrigger className="w-64"><SelectValue placeholder="Choose insurer" /></SelectTrigger>
+                  <SelectContent>
+                    {[...KE_INSURERS, ...ZA_INSURERS].map((i) => (
+                      <SelectItem key={i} value={i}>{i}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {packInsurer && (<>
+                <Separator />
+                <p className="text-sm font-bold text-nova-navy dark:text-white">Policy Information</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[['policy_no','Policy No.'],['renewal_date','Renewal Date'],['last_premium_date','Last Premium Date']].map(([k,l]) => (
+                    <div key={k} className="space-y-1"><Label className="text-xs">{l}</Label><Input value={packData[k]||''} onChange={setP(k)} className="h-8 text-sm" /></div>
+                  ))}
+                </div>
+                <Separator />
+                <p className="text-sm font-bold text-nova-navy dark:text-white">Insured Details</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[['insured_name','Insured Name'],['insured_address','Address'],['insured_telephone','Telephone'],['insured_email','Email'],['insured_pin','PIN No.'],['business_occupation','Business/Occupation']].map(([k,l]) => (
+                    <div key={k} className="space-y-1"><Label className="text-xs">{l}</Label><Input value={packData[k]||''} onChange={setP(k)} className="h-8 text-sm" /></div>
+                  ))}
+                </div>
+                {packInsurer === 'TWK' && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {[['identity_number','Identity No./VAT'],['contact_number','Contact Number']].map(([k,l]) => (
+                      <div key={k} className="space-y-1"><Label className="text-xs">{l}</Label><Input value={packData[k]||''} onChange={setP(k)} className="h-8 text-sm" /></div>
+                    ))}
+                  </div>
+                )}
+                <Separator />
+                <p className="text-sm font-bold text-nova-navy dark:text-white">Circumstances / Loss Details</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[['loss_date_time','Date & Time of Loss'],['loss_location','Where Loss Occurred']].map(([k,l]) => (
+                    <div key={k} className="space-y-1"><Label className="text-xs">{l}</Label><Input value={packData[k]||''} onChange={setP(k)} className="h-8 text-sm" /></div>
+                  ))}
+                </div>
+                <div className="space-y-1"><Label className="text-xs">Full Description of Loss</Label>
+                  <Textarea value={packData.loss_description||''} onChange={setP('loss_description')} rows={3} className="text-sm" /></div>
+                <Separator />
+                <p className="text-sm font-bold text-nova-navy dark:text-white">General Information</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[['premises_type','Type of Premises'],['premises_unoccupied','Were premises unoccupied? (Yes/No)'],
+                    ['premises_self_contained','Are premises self-contained?'],['owner_of_premises','Are you owner?'],
+                    ['responsible_repairs','Responsible for repairs?'],['suspicion_parties','Suspicion as to parties implicated?'],
+                    ['value_buildings','Value of Buildings'],['value_property','Value of all property in premises'],
+                    ['previous_loss','Previous loss/damage?'],['other_insurance','Other insurance covering this loss?'],
+                  ].map(([k,l]) => (
+                    <div key={k} className="space-y-1"><Label className="text-xs">{l}</Label><Input value={packData[k]||''} onChange={setP(k)} className="h-8 text-sm" /></div>
+                  ))}
+                </div>
+                <Separator />
+                <p className="text-sm font-bold text-nova-navy dark:text-white">Theft / Police Details</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[['police_notified_date','When were Police notified?'],['police_station','Address of Police Station'],
+                    ['recovery_steps','Steps taken to recover property'],['entry_method','Method of entry to premises'],
+                    ['alarm_functional','Alarm — did it function?'],['guards_employed','Guards employed? (firm name)'],
+                  ].map(([k,l]) => (
+                    <div key={k} className="space-y-1"><Label className="text-xs">{l}</Label><Input value={packData[k]||''} onChange={setP(k)} className="h-8 text-sm" /></div>
+                  ))}
+                </div>
+                {packInsurer !== 'TWK' && (<>
+                  <Separator />
+                  <p className="text-sm font-bold text-nova-navy dark:text-white">Loss in Transit (if applicable)</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[['transit_route','Starting point & destination'],['transit_accompanying','Who was accompanying property?'],
+                      ['transit_employee_details','Employee age & duties'],['fidelity_guarantee','Fidelity Guarantee Policy?'],
+                      ['transit_frequency','How often is transit made?'],['transit_max_carried','Maximum ever carried at one time?'],
+                    ].map(([k,l]) => (
+                      <div key={k} className="space-y-1"><Label className="text-xs">{l}</Label><Input value={packData[k]||''} onChange={setP(k)} className="h-8 text-sm" /></div>
+                    ))}
+                  </div>
+                </>)}
+                <Separator />
+                <p className="text-sm font-bold text-nova-navy dark:text-white">Amount Claimed</p>
+                <div className="space-y-1 max-w-xs"><Label className="text-xs">Total Amount Claimed</Label>
+                  <Input value={packData.amount_claimed||''} onChange={setP('amount_claimed')} className="h-8 text-sm" placeholder="e.g. KES 45,000" /></div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold text-gray-600">Items / Property Details</p>
+                    <button type="button" onClick={() => setPackItems((p) => [...p, { description:'', where_acquired:'', cost_price:'', depreciation:'', salvage:'', amount_claimed:'' }])} className="text-xs text-nova-teal hover:underline">+ Add row</button>
+                  </div>
+                  <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                    <table className="w-full text-xs">
+                      <thead><tr className="bg-gray-50 border-b">
+                        {['Description','Where/When Acquired','Cost Price','Depreciation','Salvage','Amount Claimed',''].map((h) => (
+                          <th key={h} className="px-2 py-1.5 text-left font-semibold text-gray-500">{h}</th>
+                        ))}
+                      </tr></thead>
+                      <tbody>{packItems.map((item, idx) => (
+                        <tr key={idx} className="border-b last:border-0">
+                          {['description','where_acquired','cost_price','depreciation','salvage','amount_claimed'].map((f) => (
+                            <td key={f} className="px-1 py-1"><Input value={item[f]||''} onChange={(e) => setPackItems((p) => p.map((r,i) => i===idx ? {...r,[f]:e.target.value} : r))} className="h-7 text-xs px-1.5" /></td>
+                          ))}
+                          <td className="px-1 py-1"><button type="button" onClick={() => setPackItems((p) => p.filter((_,i) => i!==idx))} className="text-red-400 hover:text-red-600"><X size={12} /></button></td>
+                        </tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                </div>
+                <Separator />
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-bold text-nova-navy dark:text-white">Signature</p>
+                    <button type="button" onClick={clearSig} className="text-xs text-red-500 hover:underline">Clear</button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Draw your signature below:</p>
+                      <canvas ref={(el) => setSigCanvas(el)} width={300} height={100}
+                        className="border-2 border-gray-300 rounded-lg bg-white cursor-crosshair touch-none w-full"
+                        style={{ maxHeight: 100 }}
+                        onMouseDown={startSig} onMouseMove={drawSig} onMouseUp={endSig} onMouseLeave={endSig}
+                        onTouchStart={startSig} onTouchMove={drawSig} onTouchEnd={endSig} />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="space-y-1"><Label className="text-xs">Signed by (Print Name)</Label><Input value={packData.signed_by||''} onChange={setP('signed_by')} className="h-8 text-sm" /></div>
+                      <div className="space-y-1"><Label className="text-xs">Date</Label><Input value={packData.signed_date||''} onChange={setP('signed_date')} className="h-8 text-sm" /></div>
+                    </div>
+                  </div>
+                  {packData.signature_data_url && <p className="text-[10px] text-green-600">✓ Signature captured</p>}
+                </div>
+              </>)}
+            </div>
+
+            <DialogFooter className="gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setPackOpen(false)}>Close</Button>
+              <Button type="button" variant="outline" onClick={handleSavePack} disabled={packSaving || !packInsurer}>
+                {packSaving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : 'Save Pack'}
+              </Button>
+              <Button type="button" onClick={handleDownloadPack} disabled={!packInsurer} className="bg-purple-600 hover:bg-purple-700">
+                <Download size={14} className="mr-1" /> Download PDF
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Layout>
   )
 }
