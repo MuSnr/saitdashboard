@@ -240,8 +240,25 @@ export default function ClaimTemplates() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <a href={t.cloudinaryUrl} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-nova-teal hover:underline flex items-center gap-1">
+                  <a
+                    href={`${import.meta.env.VITE_API_URL || '/api'}/claim-templates/${t._id}/pdf`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="text-xs text-nova-teal hover:underline flex items-center gap-1"
+                    onClick={(e) => {
+                      // Attach token as query param since anchor tags can't set headers
+                      e.preventDefault()
+                      const token = localStorage.getItem('sait-token')
+                      const url = `${import.meta.env.VITE_API_URL || '/api'}/claim-templates/${t._id}/pdf`
+                      fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+                        .then(r => r.blob())
+                        .then(blob => {
+                          const blobUrl = URL.createObjectURL(blob)
+                          window.open(blobUrl, '_blank')
+                          setTimeout(() => URL.revokeObjectURL(blobUrl), 10000)
+                        })
+                        .catch(() => toast.error('Could not open PDF'))
+                    }}
+                  >
                     <FileText size={12} /> View original PDF
                   </a>
                   <div className="flex gap-2">

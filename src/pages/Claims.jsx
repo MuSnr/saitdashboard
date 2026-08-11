@@ -676,7 +676,21 @@ export default function Claims() {
                 {selectedTemplate && (
                   <p className="text-[10px] text-gray-500 flex items-center gap-1">
                     {selectedTemplate.fieldMap?.length || 0} fields mapped ·
-                    <a href={selectedTemplate.cloudinaryUrl} target="_blank" rel="noopener noreferrer" className="text-nova-teal hover:underline">View original PDF</a>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        const token = localStorage.getItem('sait-token')
+                        const url = `${import.meta.env.VITE_API_URL || '/api'}/claim-templates/${selectedTemplate._id}/pdf`
+                        fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+                          .then(r => r.blob()).then(blob => {
+                            const u = URL.createObjectURL(blob)
+                            window.open(u, '_blank')
+                            setTimeout(() => URL.revokeObjectURL(u), 10000)
+                          })
+                      }}
+                      className="text-nova-teal hover:underline"
+                    >View original PDF</a>
                   </p>
                 )}
               </div>
