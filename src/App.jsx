@@ -1,8 +1,36 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { Loader2 } from 'lucide-react'
+import { Component } from 'react'
 
 import ProtectedRoute from '@/components/ProtectedRoute'
+
+// ── Error boundary — catches runtime crashes and shows message instead of blank ──
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null } }
+  static getDerivedStateFromError(error) { return { error } }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-8">
+          <div className="max-w-lg text-center space-y-4">
+            <h1 className="text-2xl font-bold text-red-600">Something went wrong</h1>
+            <p className="text-gray-600 text-sm font-mono bg-red-50 p-3 rounded-lg border border-red-200 text-left break-all">
+              {this.state.error?.message || String(this.state.error)}
+            </p>
+            <button
+              onClick={() => { this.setState({ error: null }); window.location.href = '/' }}
+              className="px-4 py-2 bg-nova-navy text-white rounded-lg text-sm font-semibold hover:bg-nova-navy/90"
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 import Login from '@/pages/Login'
 import ForgotPassword from '@/pages/ForgotPassword'
@@ -21,6 +49,7 @@ import NotFound from '@/pages/NotFound'
 import Reconciliation from '@/pages/Reconciliation'
 import Incidents from '@/pages/Incidents'
 import ClaimTemplates from '@/pages/ClaimTemplates'
+import ReportIncident from '@/pages/ReportIncident'
 
 export default function App() {
   const { loading } = useAuth()
@@ -38,7 +67,8 @@ export default function App() {
   }
 
   return (
-    <Routes>
+    <ErrorBoundary>
+      <Routes>
       {/* ── Public ───────────────────────────────────────────── */}
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -93,5 +123,6 @@ export default function App() {
       {/* ── Fallback ──────────────────────────────────────────── */}
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </ErrorBoundary>
   )
 }
