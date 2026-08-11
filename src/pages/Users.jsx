@@ -1,5 +1,5 @@
 import { Layout } from '@/components/Layout'
-import { Plus, Edit2, Trash2, CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react'
+import { Plus, Edit2, Trash2, CheckCircle, XCircle, Loader2, RefreshCw, AlertTriangle } from 'lucide-react'
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 import { fetchUsers, createUser, inviteUser, updateUser, deleteUser, approveUser, getApiError } from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
 import { useCampuses } from '@/context/CampusContext'
+import { QRCodeSVG } from 'qrcode.react'
 
 const roleVariant = { admin: 'default', campus_manager: 'info', viewer: 'secondary' }
 const roleLabel = { super_admin: 'Super Admin', admin: 'Admin', campus_manager: 'Campus Manager', viewer: 'Viewer' }
@@ -53,6 +54,8 @@ export default function Users() {
   const [submitting, setSubmitting] = useState(false)
   const [roleFilter, setRoleFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
+  // Invite link dialog — shown after successful invite
+  const [inviteResult, setInviteResult] = useState(null) // { name, email, url, emailSent }
 
   const loadUsers = useCallback(async () => {
     setLoading(true)
@@ -95,19 +98,22 @@ export default function Users() {
         toast.success('User updated')
         setUsers((p) => p.map((u) => u._id === editUser._id ? { ...u, ...data.user } : u))
       } else {
-        // Invite flow — user will receive email to set their own password
         const data = await inviteUser(form)
-        if (data.inviteUrl) {
-          // Email failed — show the link so admin can share manually
-          toast.warning(`User created but email failed. Copy this link and share it manually:`)
-          setTimeout(() => {
-            navigator.clipboard?.writeText(data.inviteUrl)
-            toast.info('Invite link copied to clipboard')
-          }, 500)
-        } else {
-          toast.success(`Invitation sent to ${form.email}`)
-        }
         setUsers((p) => [data.user, ...p])
+        setDialogOpen(false)
+        // Always show the invite link dialog with QR code
+        setInviteResult({
+          name: form.name,
+          email: form.email,
+          url: data.inviteUrl,
+          emailSent: data.emailSent,
+        })
+        if (data.emailSent) {
+          toast.success(`Invitation sent to ${form.email}`)
+        } else {
+          toast.warning('User created — email delivery failed. Share the link below.')
+        }
+        return // don't close dialog here — inviteResult dialog takes over
       }
       setDialogOpen(false)
     } catch (err) {
@@ -413,6 +419,103 @@ export default function Users() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* ── Invite Result Dialog — QR code + link ───────────────────────────── */}
+      {inviteResult && (
+        <Dialog open={!!inviteResult} onOpenChange={() => setInviteResult(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                {inviteResult.emailSent
+                  ? <><CheckCircle size={18} className="text-green-600" /> Invite Sent</>
+                  : <><AlertTriangle size={18} className="text-amber-500" /> Share Invite Link</>
+                }
+              </DialogTitle>
+              <DialogDescription>
+                {inviteResult.emailSent
+                  ? `An email was sent to ${inviteResult.email}. Also share the QR code or link as a backup.`
+                  : `Email couldn't be delivered to ${inviteResult.email}. Share the link or QR code below.`
+                }
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 pt-2">
+              {/* User info */}
+              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                <div className="w-10 h-10 rounded-full bg-nova-green flex items-center justify-center text-nova-navy font-bold text-sm flex-shrink-0">
+                  {inviteResult.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-semibold text-nova-navy dark:text-white text-sm">{inviteResult.name}</p>
+                  <p className="text-xs text-gray-500">{inviteResult.email}</p>
+                </div>
+              </div>
+
+              {/* QR Code */}
+              {inviteResult.url && (
+                <div className="flex flex-col items-center gap-3 p-4 bg-white border border-gray-200 rounded-xl">
+                  <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Scan to set password</p>
+                  <QRCodeSVG
+                    value={inviteResult.url}
+                    size={180}
+                    level="M"
+                    includeMargin={true}
+                    fgColor="#0A1628"
+                  />
+                  <p className="text-[10px] text-gray-400">Valid for 7 days</p>
+                </div>
+              )}
+
+              {/* Link */}
+              {inviteResult.url && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-gray-600">Or share this link:</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      readOnly
+                      value={inviteResult.url}
+                      className="flex-1 text-xs p-2.5 border border-gray-200 rounded-lg bg-gray-50 font-mono truncate"
+                      onClick={(e) => e.target.select()}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(inviteResult.url)
+                        toast.success('Link copied!')
+                      }}
+                    >
+                      Copy
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Share via Web Share API (mobile) */}
+              {inviteResult.url && navigator.share && (
+                <Button
+                  className="w-full"
+                  onClick={() => navigator.share({
+                    title: 'SAIT Invite — Nova Pioneer',
+                    text: `Hi ${inviteResult.name}, you've been invited to SAIT. Click the link to set your password.`,
+                    url: inviteResult.url,
+                  })}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                    <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                  </svg>
+                  Share via WhatsApp / Email
+                </Button>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setInviteResult(null)}>Done</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </Layout>
   )
 }
