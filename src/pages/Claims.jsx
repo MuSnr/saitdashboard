@@ -494,10 +494,26 @@ export default function Claims() {
                         </td>
                         <td className="px-3 py-3">
                           <div className="flex items-center gap-1">
-                            <button onClick={() => openPack(c)} title="Claim Pack / Insurer Form" className="p-1.5 rounded-lg text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"><PenLine size={13} /></button>
+                            {/* Claim Pack button — shows badge if pack already saved */}
+                            <button
+                              onClick={() => openPack(c)}
+                              title={c.claim_pack?.pack_generated_at ? `Claim pack saved · ${new Date(c.claim_pack.pack_generated_at).toLocaleDateString()}` : 'Create Claim Pack'}
+                              className={`p-1.5 rounded-lg transition-colors relative ${c.claim_pack?.pack_generated_at ? 'text-purple-700 bg-purple-100 hover:bg-purple-200' : 'text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20'}`}
+                            >
+                              <PenLine size={13} />
+                              {c.claim_pack?.pack_generated_at && (
+                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full border border-white" />
+                              )}
+                            </button>
                             <button onClick={() => openEdit(c)} className="p-1.5 rounded-lg text-nova-teal hover:bg-nova-teal/10 transition-colors"><Edit2 size={13} /></button>
                             <button onClick={() => handleDelete(c._id)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={13} /></button>
                           </div>
+                          {/* Pack saved indicator */}
+                          {c.claim_pack?.pack_generated_at && (
+                            <p className="text-[9px] text-purple-500 mt-0.5 whitespace-nowrap">
+                              Pack saved
+                            </p>
+                          )}
                         </td>
                       </tr>
                     ))}
