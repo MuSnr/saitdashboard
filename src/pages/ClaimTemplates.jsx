@@ -124,7 +124,7 @@ export default function ClaimTemplates() {
     setSigField(tpl.signatureField || { page:1, x:15, y:240, width:60, height:20 })
     setMapperPage(1)
     setActiveKey(null)
-    // Use proxy URL so auth token is sent — avoids Cloudinary 401
+    // Use proxy URL — streams PDF from GridFS via our authenticated API
     const proxyUrl = `${import.meta.env.VITE_API_URL || '/api'}/claim-templates/${tpl._id}/pdf`
     renderPdfPage(proxyUrl, 1)
     setMapperOpen(true)
@@ -268,7 +268,6 @@ export default function ClaimTemplates() {
                     <Button size="sm" variant="outline" onClick={() => openEdit(t)}><Edit2 size={13} /></Button>
                     <Button size="sm" variant="outline" className="text-red-500 hover:bg-red-50" onClick={() => handleDelete(t._id)}><Trash2 size={13} /></Button>
                   </div>
-                  <p className="text-[10px] text-amber-600">⚠ If PDF fails to load, delete and re-upload this template.</p>
                 </CardContent>
               </Card>
             ))}
