@@ -49,6 +49,78 @@ const FIELD_KEYS = [
 
 const blankForm = { name: '', insurer: '', region: 'Both' }
 
+// ── Pre-mapped field coordinates for known insurer forms ─────────────────────
+// Coordinates are in mm from top-left of A4 page (210×297mm)
+// Measured from the actual GA Insurance and TWK forms
+
+const DEFAULT_MAPS = {
+  // GA Insurance & Mayfair — identical form layout
+  'GA': {
+    fieldMap: [
+      { key: 'policy_no',           label: 'Policy No.',             page: 1, x: 35,  y: 52,  fontSize: 9, fontStyle: 'normal', maxWidth: 25 },
+      { key: 'renewal_date',        label: 'Renewal Date',           page: 1, x: 95,  y: 52,  fontSize: 9, fontStyle: 'normal', maxWidth: 30 },
+      { key: 'last_premium_date',   label: 'Last Premium Date',      page: 1, x: 155, y: 52,  fontSize: 9, fontStyle: 'normal', maxWidth: 45 },
+      { key: 'insured_name',        label: 'Insured Name',           page: 1, x: 50,  y: 62,  fontSize: 9, fontStyle: 'normal', maxWidth: 140 },
+      { key: 'insured_address',     label: 'Address',                page: 1, x: 50,  y: 70,  fontSize: 9, fontStyle: 'normal', maxWidth: 100 },
+      { key: 'insured_telephone',   label: 'Telephone',              page: 1, x: 140, y: 70,  fontSize: 9, fontStyle: 'normal', maxWidth: 50 },
+      { key: 'business_occupation', label: 'Business/Occupation',   page: 1, x: 50,  y: 78,  fontSize: 9, fontStyle: 'normal', maxWidth: 80 },
+      { key: 'insured_email',       label: 'Email',                  page: 1, x: 50,  y: 86,  fontSize: 9, fontStyle: 'normal', maxWidth: 80 },
+      { key: 'insured_pin',         label: 'PIN No.',                page: 1, x: 150, y: 86,  fontSize: 9, fontStyle: 'normal', maxWidth: 45 },
+      { key: 'loss_date_time',      label: 'Date & Time of Loss',    page: 1, x: 50,  y: 100, fontSize: 9, fontStyle: 'normal', maxWidth: 60 },
+      { key: 'loss_location',       label: 'Where Loss Occurred',   page: 1, x: 50,  y: 109, fontSize: 9, fontStyle: 'normal', maxWidth: 140 },
+      { key: 'loss_description',    label: 'Description of Loss',   page: 1, x: 50,  y: 118, fontSize: 9, fontStyle: 'normal', maxWidth: 140 },
+      { key: 'premises_type',       label: 'Type of Premises',      page: 1, x: 50,  y: 140, fontSize: 9, fontStyle: 'normal', maxWidth: 140 },
+      { key: 'premises_unoccupied', label: 'Premises Unoccupied?',  page: 1, x: 50,  y: 149, fontSize: 9, fontStyle: 'normal', maxWidth: 140 },
+      { key: 'owner_of_premises',   label: 'Owner of Premises?',    page: 1, x: 50,  y: 158, fontSize: 9, fontStyle: 'normal', maxWidth: 140 },
+      { key: 'suspicion_parties',   label: 'Suspicion of Parties',  page: 1, x: 50,  y: 175, fontSize: 9, fontStyle: 'normal', maxWidth: 140 },
+      { key: 'other_insurance',     label: 'Other Insurance',       page: 1, x: 50,  y: 184, fontSize: 9, fontStyle: 'normal', maxWidth: 140 },
+      { key: 'previous_loss',       label: 'Previous Loss?',        page: 1, x: 50,  y: 197, fontSize: 9, fontStyle: 'normal', maxWidth: 140 },
+      { key: 'value_buildings',     label: 'Value of Buildings',    page: 1, x: 100, y: 210, fontSize: 9, fontStyle: 'normal', maxWidth: 50 },
+      { key: 'value_property',      label: 'Value of Property',     page: 1, x: 160, y: 210, fontSize: 9, fontStyle: 'normal', maxWidth: 40 },
+      { key: 'police_notified_date',label: 'Police Notified Date',  page: 1, x: 50,  y: 228, fontSize: 9, fontStyle: 'normal', maxWidth: 140 },
+      { key: 'police_station',      label: 'Police Station',        page: 1, x: 50,  y: 237, fontSize: 9, fontStyle: 'normal', maxWidth: 140 },
+      { key: 'recovery_steps',      label: 'Recovery Steps',        page: 1, x: 50,  y: 246, fontSize: 9, fontStyle: 'normal', maxWidth: 140 },
+      { key: 'amount_claimed',      label: 'Amount Claimed',        page: 1, x: 50,  y: 280, fontSize: 9, fontStyle: 'normal', maxWidth: 140 },
+      { key: 'signed_by',           label: 'Signed By',             page: 2, x: 100, y: 248, fontSize: 9, fontStyle: 'normal', maxWidth: 80 },
+      { key: 'signed_date',         label: 'Signed Date',           page: 2, x: 100, y: 238, fontSize: 9, fontStyle: 'normal', maxWidth: 50 },
+    ],
+    signatureField: { page: 2, x: 15, y: 230, width: 65, height: 18 },
+  },
+  // TWK — South Africa bilingual form
+  'TWK': {
+    fieldMap: [
+      { key: 'policy_no',           label: 'Policy No.',             page: 1, x: 50,  y: 36,  fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'insured_name',        label: 'Insured Name',           page: 1, x: 50,  y: 54,  fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'identity_number',     label: 'Identity No./VAT',       page: 1, x: 50,  y: 63,  fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'contact_number',      label: 'Contact Number',         page: 1, x: 50,  y: 72,  fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'loss_date_time',      label: 'Date of Loss',           page: 1, x: 50,  y: 90,  fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'loss_location',       label: 'When Loss Discovered',   page: 1, x: 50,  y: 99,  fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'amount_claimed',      label: 'Value of Loss',          page: 1, x: 50,  y: 108, fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'insured_address',     label: 'Address',                page: 1, x: 50,  y: 126, fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'premises_unoccupied', label: 'Premises Occupied?',     page: 1, x: 50,  y: 135, fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'business_occupation', label: 'Purpose of Occupation',  page: 1, x: 50,  y: 162, fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'loss_description',    label: 'Circumstances',          page: 1, x: 50,  y: 180, fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'previous_loss',       label: 'Previous Loss?',         page: 1, x: 50,  y: 240, fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'police_notified_date',label: 'Police Date/Time/Place', page: 2, x: 50,  y: 36,  fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'police_station',      label: 'Police Details',         page: 2, x: 50,  y: 54,  fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'other_insurance',     label: 'Other Insurance?',       page: 2, x: 50,  y: 108, fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'value_property',      label: 'Total Value Insured',    page: 2, x: 50,  y: 126, fontSize: 9, fontStyle: 'normal', maxWidth: 120 },
+      { key: 'signed_by',           label: 'Signed By',              page: 2, x: 100, y: 200, fontSize: 9, fontStyle: 'normal', maxWidth: 80 },
+      { key: 'signed_date',         label: 'Signed Date',            page: 2, x: 100, y: 190, fontSize: 9, fontStyle: 'normal', maxWidth: 50 },
+    ],
+    signatureField: { page: 2, x: 15, y: 183, width: 65, height: 18 },
+  },
+}
+
+// Detect which default map to use based on insurer name
+function getDefaultMap(insurer) {
+  if (!insurer) return null
+  const name = insurer.toLowerCase()
+  if (name.includes('twk')) return DEFAULT_MAPS['TWK']
+  if (name.includes('ga') || name.includes('mayfair')) return DEFAULT_MAPS['GA']
+  return null
+}
+
 export default function ClaimTemplates() {
   const { isAdmin, isSuperAdmin } = useAuth()
   const [templates, setTemplates]   = useState([])
@@ -124,6 +196,17 @@ export default function ClaimTemplates() {
     setSigField(tpl.signatureField || { page:1, x:15, y:240, width:60, height:20 })
     setMapperPage(1)
     setActiveKey(null)
+
+    // Auto-load default map if template has no mapping yet
+    if (!tpl.fieldMap?.length) {
+      const def = getDefaultMap(tpl.insurer)
+      if (def) {
+        setFieldMap(def.fieldMap)
+        setSigField(def.signatureField)
+        toast.success(`Default field map loaded for ${tpl.insurer} — review positions then save.`)
+      }
+    }
+
     // Use proxy URL — streams PDF from GridFS via our authenticated API
     const proxyUrl = `${import.meta.env.VITE_API_URL || '/api'}/claim-templates/${tpl._id}/pdf`
     renderPdfPage(proxyUrl, 1)
@@ -321,7 +404,23 @@ export default function ClaimTemplates() {
           <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2"><MapPin size={16} className="text-purple-600" /> Field Mapper — {mapperTpl.name}</DialogTitle>
-              <DialogDescription>Select a field, then click on the PDF where that value should appear.</DialogDescription>
+              <DialogDescription className="flex items-center justify-between">
+                <span>Select a field, then click on the PDF where that value should appear.</span>
+                {getDefaultMap(mapperTpl?.insurer) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const def = getDefaultMap(mapperTpl.insurer)
+                      setFieldMap(def.fieldMap)
+                      setSigField(def.signatureField)
+                      toast.success('Default positions loaded — save when ready.')
+                    }}
+                    className="text-xs font-semibold text-purple-600 hover:underline flex-shrink-0 ml-4"
+                  >
+                    ↩ Load default map
+                  </button>
+                )}
+              </DialogDescription>
             </DialogHeader>
             <div className="flex gap-4 pt-2">
               {/* Left: field list */}
