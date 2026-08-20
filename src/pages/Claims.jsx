@@ -469,7 +469,7 @@ export default function Claims() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                      {['Ref','Status','Campus','Incident Date','Submitted','Settled','Claim Value','Amt Paid','Excess','Incident Link','Description','Docs',''].map((h) => (
+                      {['Ref','Status','Campus','Incident Date','Submitted','Settled','Claim Value','Amt Paid','Excess','Incident Link','Description','Docs','Actions'].map((h) => (
                         <th key={h} className="px-3 py-3 text-left text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -513,27 +513,24 @@ export default function Claims() {
                           </div>
                         </td>
                         <td className="px-3 py-3">
-                          <div className="flex items-center gap-1">
-                            {/* Claim Pack button — shows badge if pack already saved */}
+                          <div className="flex flex-col gap-1">
+                            {/* Fill Form / Claim Pack — prominent labeled button */}
                             <button
                               onClick={() => openPack(c)}
-                              title={c.claim_pack?.pack_generated_at ? `Claim pack saved · ${new Date(c.claim_pack.pack_generated_at).toLocaleDateString()}` : 'Create Claim Pack'}
-                              className={`p-1.5 rounded-lg transition-colors relative ${c.claim_pack?.pack_generated_at ? 'text-purple-700 bg-purple-100 hover:bg-purple-200' : 'text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/20'}`}
+                              title={c.claim_pack?.pack_generated_at ? `Last saved · ${new Date(c.claim_pack.pack_generated_at).toLocaleDateString()}` : 'Fill & download insurer claim form'}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap
+                                ${c.claim_pack?.pack_generated_at
+                                  ? 'text-purple-700 bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-300'
+                                  : 'text-purple-600 border border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20'}`}
                             >
-                              <PenLine size={13} />
-                              {c.claim_pack?.pack_generated_at && (
-                                <span className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full border border-white" />
-                              )}
+                              <PenLine size={12} />
+                              {c.claim_pack?.pack_generated_at ? 'Edit Form' : 'Fill Form'}
                             </button>
-                            <button onClick={() => openEdit(c)} className="p-1.5 rounded-lg text-nova-teal hover:bg-nova-teal/10 transition-colors"><Edit2 size={13} /></button>
-                            <button onClick={() => handleDelete(c._id)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><Trash2 size={13} /></button>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => openEdit(c)} className="p-1.5 rounded-lg text-nova-teal hover:bg-nova-teal/10 transition-colors" title="Edit claim"><Edit2 size={13} /></button>
+                              <button onClick={() => handleDelete(c._id)} className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors" title="Delete claim"><Trash2 size={13} /></button>
+                            </div>
                           </div>
-                          {/* Pack saved indicator */}
-                          {c.claim_pack?.pack_generated_at && (
-                            <p className="text-[9px] text-purple-500 mt-0.5 whitespace-nowrap">
-                              Pack saved
-                            </p>
-                          )}
                         </td>
                       </tr>
                     ))}

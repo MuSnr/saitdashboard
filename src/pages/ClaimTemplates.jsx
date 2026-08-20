@@ -12,39 +12,65 @@ import { toast } from 'sonner'
 import { fetchClaimTemplates, createClaimTemplate, updateClaimTemplate, deleteClaimTemplate, getApiError } from '@/services/api'
 import { useAuth } from '@/context/AuthContext'
 
-// All the data fields that can be mapped to PDF positions
+// All the data fields that can be mapped to PDF positions.
+// Keys must match exactly what packData uses in Claims.jsx.
 const FIELD_KEYS = [
-  { key: 'policy_no',           label: 'Policy No.' },
-  { key: 'renewal_date',        label: 'Renewal Date' },
-  { key: 'last_premium_date',   label: 'Last Premium Date' },
-  { key: 'insured_name',        label: 'Insured Name' },
-  { key: 'insured_address',     label: 'Address' },
-  { key: 'insured_telephone',   label: 'Telephone' },
-  { key: 'insured_email',       label: 'Email' },
-  { key: 'insured_pin',         label: 'PIN No.' },
-  { key: 'business_occupation', label: 'Business / Occupation' },
-  { key: 'loss_date_time',      label: 'Date & Time of Loss' },
-  { key: 'loss_location',       label: 'Where Loss Occurred' },
-  { key: 'loss_description',    label: 'Description of Loss' },
-  { key: 'premises_type',       label: 'Type of Premises' },
-  { key: 'premises_unoccupied', label: 'Premises Unoccupied?' },
-  { key: 'owner_of_premises',   label: 'Owner of Premises?' },
-  { key: 'suspicion_parties',   label: 'Suspicion of Parties' },
-  { key: 'other_insurance',     label: 'Other Insurance' },
-  { key: 'previous_loss',       label: 'Previous Loss?' },
-  { key: 'value_buildings',     label: 'Value of Buildings' },
-  { key: 'value_property',      label: 'Value of Property' },
-  { key: 'police_notified_date',label: 'Police Notified Date' },
-  { key: 'police_station',      label: 'Police Station' },
-  { key: 'recovery_steps',      label: 'Recovery Steps' },
-  { key: 'entry_method',        label: 'Entry Method' },
-  { key: 'alarm_functional',    label: 'Alarm Functional?' },
-  { key: 'guards_employed',     label: 'Guards Employed?' },
-  { key: 'amount_claimed',      label: 'Amount Claimed' },
-  { key: 'identity_number',     label: 'Identity Number / VAT' },
-  { key: 'contact_number',      label: 'Contact Number' },
-  { key: 'signed_by',           label: 'Signed By (Name)' },
-  { key: 'signed_date',         label: 'Signed Date' },
+  // ── Policy ──────────────────────────────────────────────────────────────────
+  { key: 'policy_no',             label: 'Policy No.',                  group: 'Policy' },
+  { key: 'renewal_date',          label: 'Renewal Date',                group: 'Policy' },
+  { key: 'last_premium_date',     label: 'Last Premium Date',           group: 'Policy' },
+  // ── Insured ─────────────────────────────────────────────────────────────────
+  { key: 'insured_name',          label: 'Insured Name',                group: 'Insured' },
+  { key: 'insured_address',       label: 'Address',                     group: 'Insured' },
+  { key: 'insured_telephone',     label: 'Telephone',                   group: 'Insured' },
+  { key: 'insured_email',         label: 'Email',                       group: 'Insured' },
+  { key: 'insured_pin',           label: 'PIN No.',                     group: 'Insured' },
+  { key: 'business_occupation',   label: 'Business / Occupation',       group: 'Insured' },
+  { key: 'identity_number',       label: 'Identity Number / VAT',       group: 'Insured' },
+  { key: 'contact_number',        label: 'Contact Number',              group: 'Insured' },
+  // ── Loss / Circumstances ────────────────────────────────────────────────────
+  { key: 'location',              label: 'Location (Campus)',           group: 'Loss' },
+  { key: 'loss_date_time',        label: 'Date & Time of Loss',         group: 'Loss' },
+  { key: 'loss_location',         label: 'Where Loss Occurred',         group: 'Loss' },
+  { key: 'loss_description',      label: 'Description of Loss',         group: 'Loss' },
+  { key: 'when_loss_discovered',  label: 'When Loss Discovered',        group: 'Loss' },
+  // ── Premises ────────────────────────────────────────────────────────────────
+  { key: 'premises_type',         label: 'Type of Premises',            group: 'Premises' },
+  { key: 'premises_unoccupied',   label: 'Premises Unoccupied?',        group: 'Premises' },
+  { key: 'premises_self_contained',label: 'Premises Self-Contained?',   group: 'Premises' },
+  { key: 'owner_of_premises',     label: 'Owner of Premises?',          group: 'Premises' },
+  { key: 'responsible_repairs',   label: 'Responsible for Repairs?',    group: 'Premises' },
+  // ── General / Other ─────────────────────────────────────────────────────────
+  { key: 'suspicion_parties',     label: 'Suspicion of Parties',        group: 'General' },
+  { key: 'other_insurance',       label: 'Other Insurance (Kenya)',      group: 'General' },
+  { key: 'other_insurance_twk',   label: 'Other Insurance (TWK/SA)',     group: 'General' },
+  { key: 'previous_loss',         label: 'Previous Loss?',              group: 'General' },
+  { key: 'third_party_name',      label: 'Third Party Name',            group: 'General' },
+  { key: 'other_party_interest',  label: 'Other Party Interest',        group: 'General' },
+  { key: 'alarm_activated',       label: 'Alarm Activated?',            group: 'General' },
+  // ── Values ──────────────────────────────────────────────────────────────────
+  { key: 'value_buildings',       label: 'Value of Buildings',          group: 'Values' },
+  { key: 'value_property',        label: 'Value of Property',           group: 'Values' },
+  { key: 'total_value_insured',   label: 'Total Value Insured',         group: 'Values' },
+  { key: 'last_valuated',         label: 'Last Valuated',               group: 'Values' },
+  { key: 'amount_claimed',        label: 'Amount Claimed',              group: 'Values' },
+  // ── Police / Recovery ───────────────────────────────────────────────────────
+  { key: 'police_notified_date',  label: 'Police Notified Date',        group: 'Police' },
+  { key: 'police_station',        label: 'Police Station',              group: 'Police' },
+  { key: 'recovery_steps',        label: 'Recovery Steps',              group: 'Police' },
+  { key: 'entry_method',          label: 'Entry Method',                group: 'Police' },
+  { key: 'alarm_functional',      label: 'Alarm Functional?',           group: 'Police' },
+  { key: 'guards_employed',       label: 'Guards Employed?',            group: 'Police' },
+  // ── Transit ─────────────────────────────────────────────────────────────────
+  { key: 'transit_route',         label: 'Transit Route',               group: 'Transit' },
+  { key: 'transit_accompanying',  label: 'Who Accompanied Transit?',    group: 'Transit' },
+  { key: 'transit_employee_details', label: 'Transit Employee Details', group: 'Transit' },
+  { key: 'fidelity_guarantee',    label: 'Fidelity Guarantee Policy?',  group: 'Transit' },
+  { key: 'transit_frequency',     label: 'Transit Frequency',           group: 'Transit' },
+  { key: 'transit_max_carried',   label: 'Max Carried at Once',         group: 'Transit' },
+  // ── Declaration ─────────────────────────────────────────────────────────────
+  { key: 'signed_by',             label: 'Signed By (Name)',            group: 'Declaration' },
+  { key: 'signed_date',           label: 'Signed Date',                 group: 'Declaration' },
 ]
 
 const blankForm = { name: '', insurer: '', region: 'Both' }
@@ -458,21 +484,29 @@ export default function ClaimTemplates() {
               </DialogDescription>
             </DialogHeader>
             <div className="flex gap-4 pt-2">
-              {/* Left: field list */}
+              {/* Left: field list — grouped */}
               <div className="w-56 flex-shrink-0 space-y-1 overflow-y-auto max-h-[70vh]">
                 <p className="text-xs font-bold text-gray-500 uppercase mb-2">Fields</p>
-                {FIELD_KEYS.map((f) => {
-                  const mapped = fieldMap.find((m) => m.key === f.key)
-                  return (
-                    <button key={f.key} onClick={() => setActiveKey(f.key)}
-                      className={`w-full text-left text-xs px-2 py-1.5 rounded-lg flex items-center justify-between gap-1 transition-colors
-                        ${activeKey === f.key ? 'bg-purple-100 text-purple-700 font-semibold' : 'hover:bg-gray-100 text-gray-700'}
-                      `}>
-                      <span>{f.label}</span>
-                      {mapped && <Check size={11} className="text-green-500 flex-shrink-0" />}
-                    </button>
-                  )
-                })}
+                {(() => {
+                  const groups = [...new Set(FIELD_KEYS.map(f => f.group))]
+                  return groups.map(group => (
+                    <div key={group}>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2 pt-2 pb-0.5">{group}</p>
+                      {FIELD_KEYS.filter(f => f.group === group).map((f) => {
+                        const mapped = fieldMap.find((m) => m.key === f.key)
+                        return (
+                          <button key={f.key} onClick={() => setActiveKey(f.key)}
+                            className={`w-full text-left text-xs px-2 py-1.5 rounded-lg flex items-center justify-between gap-1 transition-colors
+                              ${activeKey === f.key ? 'bg-purple-100 text-purple-700 font-semibold' : 'hover:bg-gray-100 text-gray-700'}
+                            `}>
+                            <span>{f.label}</span>
+                            {mapped && <Check size={11} className="text-green-500 flex-shrink-0" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  ))
+                })()}
                 <Separator />
                 <button onClick={() => setActiveKey('__signature__')}
                   className={`w-full text-left text-xs px-2 py-1.5 rounded-lg flex items-center justify-between gap-1 transition-colors
@@ -481,6 +515,9 @@ export default function ClaimTemplates() {
                   <span>✍ Signature</span>
                   {sigField.x && <Check size={11} className="text-green-500 flex-shrink-0" />}
                 </button>
+                <p className="text-[10px] text-gray-400 px-2 pt-2">
+                  {fieldMap.length} / {FIELD_KEYS.length} fields mapped
+                </p>
               </div>
 
               {/* Right: PDF preview */}
