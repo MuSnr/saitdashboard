@@ -226,7 +226,13 @@ export default function ClaimTemplates() {
     setMapperPage(1)
     setActiveKey(null)
 
-    // Auto-load default map if template has no mapping yet
+    // Warn if template has stale coordinates (mapped before the coordinate fix)
+    // Old entries have no pageWidth stored — they used hardcoded A4
+    if (tpl.fieldMap?.length && !tpl.fieldMap.some(f => f.pageWidth)) {
+      toast.warning('⚠ This map has old coordinates. Click "Clear Map" and re-map fields to fix PDF positioning.', { duration: 6000 })
+    }
+
+    // Auto-load default map only if template has no mapping at all
     if (!tpl.fieldMap?.length) {
       const def = getDefaultMap(tpl.insurer)
       if (def) {
@@ -240,6 +246,17 @@ export default function ClaimTemplates() {
     const proxyUrl = `${import.meta.env.VITE_API_URL || '/api'}/claim-templates/${tpl._id}/pdf`
     renderPdfPage(proxyUrl, 1)
     setMapperOpen(true)
+  }
+
+  // Clear all mapped fields from the current template (resets DB via PUT with empty fieldMap)
+  const handleClearMap = async () => {
+    if (!mapperTpl) return
+    if (!window.confirm('Clear all mapped field positions? You will need to re-map them. This cannot be undone.')) return
+    try {
+      await updateClaimTemplate(mapperTpl._id, { fieldMap: JSON.stringify([]) })
+      setFieldMap([])
+      toast.success('Field map cleared — click fields then click their positions on the PDF to re-map.')
+    } catch (err) { toast.error(getApiError(err)) }
   }
 
   const renderPdfPage = async (url, pageNum) => {
@@ -378,8 +395,18 @@ export default function ClaimTemplates() {
                       <CardTitle className="text-base">{t.name}</CardTitle>
                       <CardDescription>{t.insurer} · {t.region}</CardDescription>
                     </div>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${t.fieldMap?.length > 0 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-                      {t.fieldMap?.length > 0 ? `${t.fieldMap.length} fields mapped` : 'Not mapped'}
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                      t.fieldMap?.length > 0
+                        ? t.fieldMap.some(f => f.pageWidth)
+                          ? 'bg-green-100 text-green-700'         // mapped with correct coords
+                          : 'bg-orange-100 text-orange-700'       // mapped but stale coords
+                        : 'bg-amber-100 text-amber-700'           // not mapped at all
+                    }`}>
+                      {t.fieldMap?.length > 0
+                        ? t.fieldMap.some(f => f.pageWidth)
+                          ? `${t.fieldMap.length} fields mapped`
+                          : `⚠ Re-map needed (${t.fieldMap.length} old)`
+                        : 'Not mapped'}
                     </span>
                   </div>
                 </CardHeader>
@@ -483,6 +510,20 @@ export default function ClaimTemplates() {
                 )}
               </DialogDescription>
             </DialogHeader>
+
+            {/* Stale coordinates warning — shown when existing map has no pageWidth (pre-fix coordinates) */}
+            {fieldMap.length > 0 && !fieldMap.some(f => f.pageWidth) && (
+              <div className="flex items-start gap-2 px-4 py-3 bg-orange-50 border border-orange-200 rounded-lg text-sm text-orange-800 mx-1">
+                <span className="text-lg leading-none flex-shrink-0">⚠</span>
+                <div>
+                  <p className="font-semibold">Old coordinates detected — PDF text will appear in wrong positions</p>
+                  <p className="text-xs mt-0.5 text-orange-700">
+                    These positions were saved before the coordinate fix. Click <strong>Clear Map</strong> below, then re-click each field position on the PDF to fix this.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-4 pt-2">
               {/* Left: field list — grouped */}
               <div className="w-56 flex-shrink-0 space-y-1 overflow-y-auto max-h-[70vh]">
@@ -593,6 +634,13 @@ export default function ClaimTemplates() {
 
             <DialogFooter className="gap-2 pt-2">
               <Button variant="outline" onClick={() => setMapperOpen(false)}>Cancel</Button>
+              <Button
+                variant="outline"
+                onClick={handleClearMap}
+                className="text-orange-600 border-orange-300 hover:bg-orange-50"
+              >
+                <X size={13} className="mr-1" /> Clear Map
+              </Button>
               <Button onClick={saveFieldMap} disabled={savingMap} className="bg-purple-600 hover:bg-purple-700">
                 {savingMap ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><Check size={14} /> Save Field Map</>}
               </Button>
