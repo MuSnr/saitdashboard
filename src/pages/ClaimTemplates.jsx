@@ -140,6 +140,9 @@ export default function ClaimTemplates() {
   const [pdfImgUrl,    setPdfImgUrl]    = useState(null)   // rendered page image
   const [mapperPage,   setMapperPage]   = useState(1)
   const [savingMap,    setSavingMap]    = useState(false)
+  // Actual page dimensions in mm — captured from pdf.js viewport at scale=1
+  const [pageSizeMm,   setPageSizeMm]   = useState({ width: 210, height: 297 })
+  const [totalPages,   setTotalPages]   = useState(1)
   const canvasRef = useRef(null)
 
   const load = useCallback(async () => {
@@ -234,6 +237,18 @@ export default function ClaimTemplates() {
 
       const pdf      = await window.pdfjsLib.getDocument({ data: buffer }).promise
       const page     = await pdf.getPage(pageNum)
+
+      // Capture actual page size at scale=1 (native PDF points), convert to mm
+      // 1 PDF point = 0.3528 mm
+      const PT_TO_MM = 0.3528
+      const nativeVp = page.getViewport({ scale: 1 })
+      setPageSizeMm({
+        width:  nativeVp.width  * PT_TO_MM,
+        height: nativeVp.height * PT_TO_MM,
+      })
+      setTotalPages(pdf.numPages)
+
+      // Render at higher scale for display quality
       const scale    = 1.5
       const viewport = page.getViewport({ scale })
       const canvas   = document.createElement('canvas')
@@ -252,20 +267,40 @@ export default function ClaimTemplates() {
     const rect = canvasRef.current.getBoundingClientRect()
     const xPct = (e.clientX - rect.left) / rect.width
     const yPct = (e.clientY - rect.top)  / rect.height
-    // A4 = 210mm × 297mm
-    const xMm = xPct * 210
-    const yMm = yPct * 297
+
+    // Use actual page dimensions captured from pdf.js — not hardcoded A4
+    const xMm = xPct * pageSizeMm.width
+    const yMm = yPct * pageSizeMm.height
 
     if (activeKey === '__signature__') {
-      setSigField((s) => ({ ...s, page: mapperPage, x: Math.round(xMm), y: Math.round(yMm) }))
-      toast.success(`Signature placed at (${Math.round(xMm)}, ${Math.round(yMm)}) mm`)
+      setSigField((s) => ({
+        ...s,
+        page: mapperPage,
+        x: parseFloat(xMm.toFixed(2)),
+        y: parseFloat(yMm.toFixed(2)),
+        pageWidth:  parseFloat(pageSizeMm.width.toFixed(2)),
+        pageHeight: parseFloat(pageSizeMm.height.toFixed(2)),
+      }))
+      toast.success(`Signature placed at (${xMm.toFixed(1)}, ${yMm.toFixed(1)}) mm`)
     } else {
       const label = FIELD_KEYS.find((f) => f.key === activeKey)?.label || activeKey
       setFieldMap((prev) => {
         const filtered = prev.filter((f) => f.key !== activeKey)
-        return [...filtered, { key: activeKey, label, page: mapperPage, x: Math.round(xMm), y: Math.round(yMm), fontSize: 9, fontStyle: 'normal', maxWidth: 60 }]
+        return [...filtered, {
+          key:        activeKey,
+          label,
+          page:       mapperPage,
+          x:          parseFloat(xMm.toFixed(2)),
+          y:          parseFloat(yMm.toFixed(2)),
+          // Store actual page size alongside each coordinate so stampPdf can verify
+          pageWidth:  parseFloat(pageSizeMm.width.toFixed(2)),
+          pageHeight: parseFloat(pageSizeMm.height.toFixed(2)),
+          fontSize:   9,
+          fontStyle:  'normal',
+          maxWidth:   60,
+        }]
       })
-      toast.success(`"${label}" mapped to (${Math.round(xMm)}, ${Math.round(yMm)}) mm`)
+      toast.success(`"${label}" mapped to (${xMm.toFixed(1)}, ${yMm.toFixed(1)}) mm`)
     }
     setActiveKey(null)
   }
@@ -456,18 +491,58 @@ export default function ClaimTemplates() {
                     Click on the PDF to place: <strong>{activeKey === '__signature__' ? 'Signature' : FIELD_KEYS.find(f => f.key === activeKey)?.label}</strong>
                   </div>
                 )}
+                {/* Page navigation */}
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={mapperPage <= 1}
+                      onClick={() => {
+                        const newPage = mapperPage - 1
+                        setMapperPage(newPage)
+                        setPdfImgUrl(null)
+                        const proxyUrl = `${import.meta.env.VITE_API_URL || '/api'}/claim-templates/${mapperTpl._id}/pdf`
+                        renderPdfPage(proxyUrl, newPage)
+                      }}
+                      className="px-2 py-1 text-xs rounded border border-gray-300 disabled:opacity-40 hover:bg-gray-100"
+                    >← Prev</button>
+                    <span className="text-xs text-gray-600 font-medium">Page {mapperPage} / {totalPages}</span>
+                    <button
+                      type="button"
+                      disabled={mapperPage >= totalPages}
+                      onClick={() => {
+                        const newPage = mapperPage + 1
+                        setMapperPage(newPage)
+                        setPdfImgUrl(null)
+                        const proxyUrl = `${import.meta.env.VITE_API_URL || '/api'}/claim-templates/${mapperTpl._id}/pdf`
+                        renderPdfPage(proxyUrl, newPage)
+                      }}
+                      className="px-2 py-1 text-xs rounded border border-gray-300 disabled:opacity-40 hover:bg-gray-100"
+                    >Next →</button>
+                  </div>
+                )}
                 {pdfImgUrl ? (
                   <div className="relative border border-gray-300 rounded-lg overflow-hidden cursor-crosshair"
                     style={{ maxHeight: '65vh' }}>
                     <img ref={canvasRef} src={pdfImgUrl} alt="PDF preview" className="w-full" onClick={handleMapperClick} />
                     {/* Overlay dots for mapped fields */}
-                    {fieldMap.filter(f => f.page === mapperPage).map((f) => (
-                      <div key={f.key} title={f.label}
-                        style={{ position:'absolute', left:`${(f.x/210)*100}%`, top:`${(f.y/297)*100}%`, transform:'translate(-50%,-50%)' }}
-                        className="w-3 h-3 rounded-full bg-purple-500 border-2 border-white shadow-md pointer-events-none" />
-                    ))}
+                    {fieldMap.filter(f => f.page === mapperPage).map((f) => {
+                      const pw = f.pageWidth  || pageSizeMm.width
+                      const ph = f.pageHeight || pageSizeMm.height
+                      return (
+                        <div key={f.key} title={`${f.label} (${f.x.toFixed(1)}, ${f.y.toFixed(1)}) mm`}
+                          style={{ position:'absolute', left:`${(f.x/pw)*100}%`, top:`${(f.y/ph)*100}%`, transform:'translate(-50%,-50%)' }}
+                          className="w-3 h-3 rounded-full bg-purple-500 border-2 border-white shadow-md pointer-events-none" />
+                      )
+                    })}
                     {sigField.page === mapperPage && (
-                      <div title="Signature" style={{ position:'absolute', left:`${(sigField.x/210)*100}%`, top:`${(sigField.y/297)*100}%`, transform:'translate(-50%,-50%)' }}
+                      <div title={`Signature (${sigField.x}, ${sigField.y}) mm`}
+                        style={{
+                          position:'absolute',
+                          left:`${(sigField.x / (sigField.pageWidth  || pageSizeMm.width))  * 100}%`,
+                          top: `${(sigField.y / (sigField.pageHeight || pageSizeMm.height)) * 100}%`,
+                          transform:'translate(-50%,-50%)',
+                        }}
                         className="w-4 h-4 rounded-full bg-green-500 border-2 border-white shadow-md pointer-events-none" />
                     )}
                   </div>

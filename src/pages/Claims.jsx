@@ -229,9 +229,29 @@ export default function Claims() {
     setClaimTemplates(templates)
     setSavedSig(sig || '')
 
-    // Auto-select template matching saved insurer
-    if (claim.insurer && templates.length) {
-      const match = templates.find(t => t.insurer === claim.insurer)
+    // Auto-select template matching claim's campus region
+    if (templates.length) {
+      // Find the campus object to get its region
+      const campusObj = campuses.find(c => c.name === claim.subsidiary)
+      const campusRegion = campusObj?.region || null   // 'Kenya' | 'South Africa' | null
+
+      // Priority: 1) exact region match for saved insurer, 2) region match, 3) 'Both', 4) first template
+      let match = null
+      if (claim.insurer) {
+        match = templates.find(t =>
+          t.insurer === claim.insurer &&
+          (t.region === campusRegion || t.region === 'Both')
+        )
+      }
+      if (!match && campusRegion) {
+        match = templates.find(t => t.region === campusRegion)
+      }
+      if (!match) {
+        match = templates.find(t => t.region === 'Both')
+      }
+      if (!match) {
+        match = templates[0]
+      }
       if (match) setSelectedTemplate(match)
     }
 
@@ -680,12 +700,21 @@ export default function Claims() {
                   }}>
                     <SelectTrigger className="w-72"><SelectValue placeholder="Choose insurer template" /></SelectTrigger>
                     <SelectContent>
-                      {claimTemplates.map((t) => (
-                        <SelectItem key={t._id} value={t._id}>
-                          {t.name} — {t.region}
-                          {t.fieldMap?.length > 0 ? '' : ' ⚠ (not mapped)'}
-                        </SelectItem>
-                      ))}
+                      {(() => {
+                        const campusObj    = campuses.find(c => c.name === packClaim?.subsidiary)
+                        const campusRegion = campusObj?.region || null
+                        // Show templates matching campus region or 'Both'; if none match, show all
+                        const relevant = campusRegion
+                          ? claimTemplates.filter(t => t.region === campusRegion || t.region === 'Both')
+                          : claimTemplates
+                        const list = relevant.length ? relevant : claimTemplates
+                        return list.map((t) => (
+                          <SelectItem key={t._id} value={t._id}>
+                            {t.name} — {t.region}
+                            {t.fieldMap?.length > 0 ? '' : ' ⚠ (not mapped)'}
+                          </SelectItem>
+                        ))
+                      })()}
                     </SelectContent>
                   </Select>
                 )}
