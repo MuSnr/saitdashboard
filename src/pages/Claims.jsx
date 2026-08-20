@@ -252,7 +252,10 @@ export default function Claims() {
       if (!match) {
         match = templates[0]
       }
-      if (match) setSelectedTemplate(match)
+      if (match) {
+        setSelectedTemplate(match)
+        setPackInsurer(match.insurer || match.name || 'selected')
+      }
     }
 
     setPackOpen(true)
@@ -317,11 +320,11 @@ export default function Claims() {
   }
 
   const handleSavePack = async () => {
-    if (!packInsurer) { toast.error('Select an insurer first'); return }
+    if (!selectedTemplate) { toast.error('Select an insurer template first'); return }
     setPackSaving(true)
     try {
       const data = await updateClaim(packClaim._id, {
-        insurer: packInsurer,
+        insurer: selectedTemplate.insurer || selectedTemplate.name,
         claim_pack: { ...packData, items: packItems, pack_generated_at: new Date() },
       })
       setClaims((p) => p.map((c) => c._id === packClaim._id ? data.claim : c))
@@ -737,7 +740,7 @@ export default function Claims() {
                 )}
               </div>
 
-              {packInsurer && (<>
+              {selectedTemplate && (<>
                 <Separator />
                 <p className="text-sm font-bold text-nova-navy dark:text-white">Policy Information</p>
                 <div className="grid grid-cols-3 gap-3">
@@ -752,7 +755,7 @@ export default function Claims() {
                     <div key={k} className="space-y-1"><Label className="text-xs">{l}</Label><Input value={packData[k]||''} onChange={setP(k)} className="h-8 text-sm" /></div>
                   ))}
                 </div>
-                {packInsurer === 'TWK' && (
+                {selectedTemplate?.insurer?.toLowerCase().includes('twk') && (
                   <div className="grid grid-cols-2 gap-3">
                     {[['identity_number','Identity No./VAT'],['contact_number','Contact Number']].map(([k,l]) => (
                       <div key={k} className="space-y-1"><Label className="text-xs">{l}</Label><Input value={packData[k]||''} onChange={setP(k)} className="h-8 text-sm" /></div>
@@ -790,7 +793,7 @@ export default function Claims() {
                     <div key={k} className="space-y-1"><Label className="text-xs">{l}</Label><Input value={packData[k]||''} onChange={setP(k)} className="h-8 text-sm" /></div>
                   ))}
                 </div>
-                {packInsurer !== 'TWK' && (<>
+                {!selectedTemplate?.insurer?.toLowerCase().includes('twk') && (<>
                   <Separator />
                   <p className="text-sm font-bold text-nova-navy dark:text-white">Loss in Transit (if applicable)</p>
                   <div className="grid grid-cols-2 gap-3">
@@ -872,7 +875,7 @@ export default function Claims() {
 
             <DialogFooter className="gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => setPackOpen(false)}>Close</Button>
-              <Button type="button" variant="outline" onClick={handleSavePack} disabled={packSaving || !packInsurer}>
+              <Button type="button" variant="outline" onClick={handleSavePack} disabled={packSaving || !selectedTemplate}>
                 {packSaving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : 'Save Pack'}
               </Button>
               <Button type="button" onClick={handleDownloadPack} disabled={!selectedTemplate || generating} className="bg-purple-600 hover:bg-purple-700">
